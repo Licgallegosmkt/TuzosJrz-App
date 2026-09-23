@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TuzosJrz · Gestión deportiva</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: #DDE3EE; }
+  body {
+    font-family: 'Inter', -apple-system, 'SF Pro', system-ui, sans-serif;
+    color: #0B1220;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  button { font-family: inherit; }
+  input { font-family: inherit; }
+  ::-webkit-scrollbar { display: none; }
+  * { scrollbar-width: none; }
+  #root { min-height: 100vh; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+<div id="proto-welcome" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.75);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:20px;font-family:'Inter',system-ui,sans-serif">
+  <div style="max-width:340px;background:#fff;border-radius:20px;padding:24px 22px;box-shadow:0 20px 60px rgba(0,0,0,0.35)">
+    <img src="assets/tuzosjrz-logo.png" alt="TuzosJrz" style="width:120px;height:120px;object-fit:contain;display:block;margin:0 auto;filter:drop-shadow(0 6px 14px rgba(0,0,0,0.15))" />
+    <div style="text-align:center;margin-top:14px">
+      <div style="font-size:11px;letter-spacing:2px;font-weight:700;color:#78350F">FILIAL OFICIAL DEL CLUB PACHUCA · VERSIÓN DE PRUEBA</div>
+      <div style="font-size:14px;color:#3B4658;margin-top:14px;line-height:1.5">¡Hola! Estás probando el prototipo de la nueva app del club. <strong style="color:#0B1220">Los datos que ves son de ejemplo</strong> — nada es real todavía.</div>
+    </div>
+    <div style="margin-top:16px;padding:12px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;font-size:12px;color:#78350F;line-height:1.5">
+      <strong>💡 Cómo probar:</strong><br/>Toca <strong>"Tweaks"</strong> arriba para cambiar entre las vistas de <strong>Admin, Entrenador y Padre</strong>.
+    </div>
+    <button id="proto-start" style="width:100%;margin-top:18px;padding:14px;border:0;border-radius:12px;background:#1D3D8A;color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 16px rgba(29,61,138,0.35)">Empezar a probar</button>
+    <div style="text-align:center;margin-top:12px;font-size:11px;color:#6B7280">Tu feedback nos ayuda a mejorar la app 💛💙</div>
+  </div>
+</div>
+<script>
+  (function() {
+    if (!localStorage.getItem('tz.welcomed')) {
+      var w = document.getElementById('proto-welcome');
+      w.style.display = 'flex';
+      document.getElementById('proto-start').onclick = function() {
+        localStorage.setItem('tz.welcomed', '1');
+        w.style.display = 'none';
+      };
+    }
+  })();
+</script>
+
+<script src="data.js"></script>
+<script src="image_slot.js"></script>
+<script type="text/babel" src="ios_frame.jsx"></script>
+<script type="text/babel" src="tweaks_panel.jsx"></script>
+<script type="text/babel" src="components/UI.jsx"></script>
+<script type="text/babel" src="components/PhotoAvatar.jsx"></script>
+<script type="text/babel" src="screens/Documents.jsx"></script>
+<script type="text/babel" src="screens/TournamentExport.jsx"></script>
+<script type="text/babel" src="screens/Dashboard.jsx"></script>
+<script type="text/babel" src="screens/Players.jsx"></script>
+<script type="text/babel" src="screens/Payments.jsx"></script>
+<script type="text/babel" src="screens/Attendance.jsx"></script>
+<script type="text/babel" src="screens/Materials.jsx"></script>
+<script type="text/babel" src="screens/Tactics.jsx"></script>
+<script type="text/babel" src="screens/AdminInvites.jsx"></script>
+<script type="text/babel" src="screens/ParentOnboarding.jsx"></script>
+<script type="text/babel" src="screens/ParentHome.jsx"></script>
+<script type="text/babel" src="screens/Coach.jsx"></script>
+<script type="text/babel" src="screens/Chat.jsx"></script>
+<script type="text/babel" src="screens/AdminCoaches.jsx"></script>
+<script type="text/babel" src="screens/Calendar.jsx"></script>
+<script type="text/babel" src="screens/Notifications.jsx"></script>
+<script type="text/babel" src="screens/AdminReports.jsx"></script>
+<script type="text/babel" src="screens/Profile.jsx"></script>
+<script type="text/babel" src="screens/Snacks.jsx"></script>
+<script type="text/babel" src="screens/CreateEvent.jsx"></script>
+<script type="text/babel" src="screens/PaymentFlow.jsx"></script>
+<script type="text/babel" src="screens/PaymentInbox.jsx"></script>
+<script type="text/babel" src="screens/AuthFlow.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+</body>
+</html>
