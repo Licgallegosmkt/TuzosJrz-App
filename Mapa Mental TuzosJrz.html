@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mapa de funcionalidades · TuzosJrz</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet" />
+<style>
+  :root { --blue:#1D3D8A; --dark:#0F2560; --gold:#F5B301; --ink:#0B1220; --muted:#6B7280; --line:#E6E8EE; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: Inter, system-ui, sans-serif; background:#F4F5F8; color:var(--ink); }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 40px 32px 60px; }
+  header { display:flex; align-items:center; gap:16px; margin-bottom: 36px; }
+  header img { width:64px; height:64px; object-fit:contain; }
+  h1 { margin:0; font-family:"Barlow Condensed",sans-serif; font-size:44px; letter-spacing:.5px; color:var(--dark); line-height:1; }
+  header p { margin:4px 0 0; color:var(--muted); font-size:14px; }
+
+  .map { display:grid; grid-template-columns: 1fr 260px 1fr; gap: 28px; align-items:start; }
+  .col { display:flex; flex-direction:column; gap: 18px; }
+  .core {
+    position: sticky; top: 40px;
+    background: linear-gradient(160deg, var(--blue), var(--dark)); color:#fff;
+    border-radius: 24px; padding: 28px 20px; text-align:center;
+    box-shadow: 0 20px 50px rgba(15,37,96,.35);
+  }
+  .core img { width:110px; height:110px; object-fit:contain; filter: drop-shadow(0 6px 16px rgba(0,0,0,.35)); }
+  .core h2 { font-family:"Barlow Condensed",sans-serif; font-size:34px; margin:10px 0 2px; letter-spacing:1px; }
+  .core .sub { color:var(--gold); font-size:11px; font-weight:800; letter-spacing:2px; }
+  .core .roles { margin-top:18px; display:flex; flex-direction:column; gap:6px; }
+  .core .roles span { background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:8px; font-size:13px; font-weight:600; }
+
+  .node { background:#fff; border-radius:16px; border:1px solid var(--line); overflow:hidden; box-shadow:0 2px 8px rgba(15,23,42,.04); }
+  .node h3 { margin:0; padding:12px 16px; font-size:14px; font-weight:800; letter-spacing:.3px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--line); }
+  .node h3 .dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .node ul { list-style:none; margin:0; padding:10px 16px 14px; display:flex; flex-direction:column; gap:7px; }
+  .node li { font-size:13px; color:#3B4658; line-height:1.4; padding-left:14px; position:relative; text-wrap:pretty; }
+  .node li::before { content:""; position:absolute; left:0; top:7px; width:5px; height:5px; border-radius:50%; background:var(--c); }
+  .left .node { border-right: 4px solid var(--c); }
+  .right .node { border-left: 4px solid var(--c); }
+  footer { margin-top:40px; text-align:center; color:var(--muted); font-size:12px; }
+  @media (max-width: 1000px) { .map { grid-template-columns: 1fr; } .core { position:static; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="assets/tuzosjrz-logo.png" alt="TuzosJrz" />
+    <div>
+      <h1>MAPA DE FUNCIONALIDADES</h1>
+      <p>App TuzosJrz · Filial oficial del Club Pachuca</p>
+    </div>
+  </header>
+
+  <div class="map">
+    <div class="col left">
+      <div class="node" style="--c:#0F172A"><h3><span class="dot" style="background:#0F172A"></span>🔐 Acceso</h3><ul>
+        <li>Splash animado con logo</li><li>Login Google · Apple · email</li><li>Ruteo automático por rol</li><li>Alta padre: invitación → registro → consentimientos → aprobación</li></ul></div>
+      <div class="node" style="--c:#1D3D8A"><h3><span class="dot" style="background:#1D3D8A"></span>🛡️ Admin</h3><ul>
+        <li>Dashboard con KPIs y cumpleaños</li><li>Jugadores ➕ nuevo · invitar tutor · importar CSV</li><li>Pagos + bandeja de comprobantes</li><li>Invitaciones con código y WhatsApp</li><li>Entrenadores y categorías</li><li>Reportes PDF/Excel · export para torneos</li><li>Supervisión de chats + anuncios</li></ul></div>
+      <div class="node" style="--c:#16A34A"><h3><span class="dot" style="background:#16A34A"></span>🏃 Coach</h3><ul>
+        <li>Home de su categoría</li><li>Roster con semáforo (sin montos)</li><li>Área médica editable</li><li>Pasar lista P / A / J</li><li>Pizarra · partido en vivo · chat</li></ul></div>
+      <div class="node" style="--c:#B45309"><h3><span class="dot" style="background:#B45309"></span>👪 Padre</h3><ul>
+        <li>Selector de hijo + alertas</li><li>Perfil del hijo y documentos</li><li>Pagos: tarjeta, SPEI, transferencia, efectivo</li><li>Chat de categoría + anuncios con reacciones</li><li>Sincronizar calendario personal</li></ul></div>
+    </div>
+
+    <div class="core">
+      <img src="assets/tuzosjrz-logo.png" alt="" />
+      <h2>TUZOSJRZ</h2>
+      <div class="sub">APP DE GESTIÓN DEPORTIVA</div>
+      <div class="roles"><span>🛡️ Admin</span><span>🏃 Entrenador</span><span>👪 Padre / tutor</span></div>
+    </div>
+
+    <div class="col right">
+      <div class="node" style="--c:#7C3AED"><h3><span class="dot" style="background:#7C3AED"></span>📅 Eventos</h3><ul>
+        <li>Entreno · partido · amistoso · evento club</li><li>Editar · cancelar · reactivar con historial</li><li>Aviso automático: push + chat + badge</li><li>Calendario: .ics por evento + suscripción webcal</li></ul></div>
+      <div class="node" style="--c:#DC2626"><h3><span class="dot" style="background:#DC2626"></span>🏟️ Partido en vivo</h3><ul>
+        <li>Cronómetro configurable · marcador estadio</li><li>Gol · amarilla · roja · falta en 2 taps</li><li>Push de goles y resultado</li><li>Tarjeta para redes con logo</li></ul></div>
+      <div class="node" style="--c:#15803D"><h3><span class="dot" style="background:#15803D"></span>📋 Pizarra</h3><ul>
+        <li>11v11 / 8v8 · 13 formaciones</li><li>11 materiales redimensionables</li><li>7 tipos de flecha · eliminar todas</li><li>Capas y plantillas guardadas</li></ul></div>
+      <div class="node" style="--c:#0E7490"><h3><span class="dot" style="background:#0E7490"></span>📄 Documentos · 🍎 Snacks · 🔔 Avisos</h3><ul>
+        <li>Docs obligatorios con % de avance y ZIP</li><li>Rotación automática de snacks</li><li>Centro de notificaciones + push iOS</li></ul></div>
+      <div class="node" style="--c:#F5B301"><h3><span class="dot" style="background:#F5B301"></span>⚖️ Legal</h3><ul>
+        <li>Reglamento Interno</li><li>Aviso de Privacidad (LFPDPPP)</li><li>Reglamento Financiero</li></ul></div>
+    </div>
+  </div>
+  <footer>TuzosJrz · tuzosjrz@gmail.com</footer>
+</div>
+</body>
+</html>

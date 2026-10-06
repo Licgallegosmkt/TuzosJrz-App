@@ -14,6 +14,52 @@ const CATEGORY_GROUP_MSGS = {
   ],
 };
 
+// ── Reacciones disponibles ─────────────────────────────────
+const AVAILABLE_REACTIONS = ['👍', '❤️', '🎉', '🙏', '🔥'];
+
+// Storage helpers para reacciones por mensaje
+function reactionsKey(chatId, msgId) { return `tz.reactions.${chatId}.${msgId}`; }
+function getReactions(chatId, msgId) {
+  try { return JSON.parse(localStorage.getItem(reactionsKey(chatId, msgId)) || '{}'); }
+  catch { return {}; }
+}
+function saveReactions(chatId, msgId, reactions) {
+  try { localStorage.setItem(reactionsKey(chatId, msgId), JSON.stringify(reactions)); } catch {}
+  window.dispatchEvent(new CustomEvent('tz-reactions-change', { detail: { chatId, msgId, reactions } }));
+}
+function toggleReaction(chatId, msgId, emoji, userId = 'me') {
+  const r = getReactions(chatId, msgId);
+  r[emoji] = r[emoji] || { count: 0, users: [] };
+  const idx = r[emoji].users.indexOf(userId);
+  if (idx >= 0) {
+    r[emoji].users.splice(idx, 1);
+    r[emoji].count = Math.max(0, r[emoji].count - 1);
+    if (r[emoji].count === 0) delete r[emoji];
+  } else {
+    r[emoji].users.push(userId);
+    r[emoji].count += 1;
+  }
+  saveReactions(chatId, msgId, r);
+}
+
+// ── Mensajes seed para el canal de anuncios ────────────────
+const ANNOUNCE_MSGS = [
+  { id: 1, author: 'Admin TuzosJrz', role: 'admin', text: '📅 A partir del 1 de octubre, los entrenamientos de Sub-10 y Sub-12 cambian de horario:\n\n• Sub-10 → 16:00 (antes 17:00)\n• Sub-12 → 18:00 (antes 17:00)\n\nGracias.', at: 'Vie 10:00', mine: false, seedReactions: { '👍': { count: 18, users: ['u1','u2'] }, '🙏': { count: 6, users: [] } } },
+  { id: 2, author: 'Admin TuzosJrz', role: 'admin', text: '⛈️ Se cancelan entrenamientos de HOY por lluvia. Nos vemos mañana en horario normal.', at: 'Mié 14:22', mine: false, seedReactions: { '👍': { count: 24, users: [] }, '❤️': { count: 3, users: [] } } },
+  { id: 3, author: 'Admin TuzosJrz', role: 'admin', text: '🏆 ¡GANAMOS EL TORNEO INTERFILIAL! Felicidades a Sub-14 por vencer 3-1 a Rayados Jr. Orgullosos del equipo 💛💙', at: 'Lun 20:15', mine: false, seedReactions: { '🎉': { count: 42, users: [] }, '🔥': { count: 28, users: [] }, '❤️': { count: 19, users: [] } } },
+  { id: 4, author: 'Admin TuzosJrz', role: 'admin', text: '💰 Recordatorio: cuotas de septiembre vencen el día 5. Pueden pagar desde la app con tarjeta, SPEI o transferencia. Gracias.', at: '2 Sep 09:00', mine: false, seedReactions: { '👍': { count: 12, users: [] } } },
+];
+
+// Seed reacciones si vacías
+function seedAnnounceReactions() {
+  ANNOUNCE_MSGS.forEach(m => {
+    const existing = getReactions('club-broadcast', m.id);
+    if (Object.keys(existing).length === 0 && m.seedReactions) {
+      saveReactions('club-broadcast', m.id, m.seedReactions);
+    }
+  });
+}
+
 const DM_MSGS = {
   'coach-ramirez': [
     { id: 1, author: 'Coach Ramírez', role: 'coach', text: 'Hola, quería comentarte sobre Diego. Ha tenido excelente actitud últimamente.', at: 'Ayer 18:22', mine: false },
@@ -227,8 +273,72 @@ function ChatRow({ chat: c, first, onClick }) {
 // ── Chat conversation ─────────────────────────────────────────
 function ChatConversation({ chat, back, role, supervising = false }) {
   const [text, setText] = React.useState('');
+  const [reactionPickerFor, setReactionPickerFor] = React.useState(null); // msgId
+  const [localMessages, setLocalMessages] = React.useState([]);
   const isGroup = chat.kind === 'group';
-  const messages = isGroup ? (CATEGORY_GROUP_MSGS[chat.category] || []) : (DM_MSGS[chat.id] || defaultDMMsgs(chat));
+  const isAnnounce = chat.kind === 'announce';
+  const isAdmin = role === 'admin';
+
+  // Seed reactions for announce channel
+  React.useEffect(() => { if (isAnnounce) seedAnnounceReactions(); }, [isAnnounce]);
+
+  const baseMessages = isAnnounce
+    ? ANNOUNCE_MSGS
+    : isGroup ? (CATEGORY_GROUP_MSGS[chat.category] || []) : (DM_MSGS[chat.id] || defaultDMMsgs(chat));
+
+  // Load persisted messages (system broadcasts) for this chat
+  const [persistedMessages, setPersistedMessages] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('tz.chatMsgs.' + chat.id) || '[]'); }
+    catch { return []; }
+  });
+  React.useEffect(() => {
+    const h = (e) => {
+      if (e.detail?.chatId === chat.id) {
+        setPersistedMessages(prev => [...prev, e.detail.msg]);
+      }
+    };
+    window.addEventListener('tz-chat-broadcast', h);
+    return () => window.removeEventListener('tz-chat-broadcast', h);
+  }, [chat.id]);
+
+  const messages = [...baseMessages, ...persistedMessages, ...localMessages];
+
+  // On announce channel: only admin can write (composer disabled for others)
+  const canWrite = !supervising && (!isAnnounce || isAdmin);
+
+  const handleReact = (msgId, emoji) => {
+    toggleReaction(chat.id, msgId, emoji);
+    setReactionPickerFor(null);
+  };
+
+  const handleSend = () => {
+    if (!text.trim()) return;
+    const newMsg = {
+      id: 'local-' + Date.now(),
+      author: isAdmin ? 'Admin TuzosJrz' : 'Yo',
+      role: isAdmin ? 'admin' : (role === 'coach' ? 'coach' : 'parent'),
+      text: text.trim(),
+      at: 'ahora',
+      mine: true,
+    };
+    setLocalMessages(prev => [...prev, newMsg]);
+    setText('');
+
+    // 🔔 Auto-push a todos los padres cuando admin publica en anuncios
+    if (isAnnounce && isAdmin) {
+      window.dispatchEvent(new CustomEvent('tz-announce-broadcast', {
+        detail: {
+          title: '📢 Nuevo anuncio del club',
+          body: text.trim().slice(0, 120) + (text.length > 120 ? '…' : ''),
+          messageId: newMsg.id,
+        }
+      }));
+      // Show visible confirmation
+      setTimeout(() => {
+        window.alert && console.log('Push enviado a todos los padres y coaches');
+      }, 100);
+    }
+  };
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#EDE7DC' }}>
@@ -284,22 +394,70 @@ function ChatConversation({ chat, back, role, supervising = false }) {
         </div>
       )}
 
+      {/* Announce channel banner */}
+      {isAnnounce && !supervising && (
+        <div style={{
+          padding: '8px 14px', background: isAdmin ? '#DBEAFE' : '#F4F5F8',
+          borderBottom: '1px solid ' + (isAdmin ? '#93C5FD' : TZ.line),
+          display: 'flex', alignItems: 'center', gap: 8,
+          fontSize: 11, color: isAdmin ? '#1E40AF' : TZ.inkSoft, fontWeight: 600,
+        }}>
+          <span>{isAdmin ? '📢' : '👁'}</span>
+          <span>{isAdmin
+            ? 'Cada mensaje aquí envía push automático a todo el club'
+            : 'Canal oficial · Solo el admin publica · Puedes reaccionar'}</span>
+        </div>
+      )}
+
       {/* Messages */}
       <div style={{
         flex: 1, overflow: 'auto', padding: '14px 10px',
         display: 'flex', flexDirection: 'column', gap: 4,
         backgroundImage: 'radial-gradient(circle at 20% 30%, rgba(0,0,0,0.03) 0, transparent 40%)',
       }}>
-        <DayLabel label="HOY" />
+        <DayLabel label={isAnnounce ? 'ANUNCIOS RECIENTES' : 'HOY'} />
         {messages.map((m, i) => {
           const prev = messages[i - 1];
-          const showAuthor = isGroup && !m.mine && (!prev || prev.author !== m.author);
-          return <Bubble key={m.id} msg={m} showAuthor={showAuthor} isGroup={isGroup} />;
+          const showAuthor = (isGroup || isAnnounce) && !m.mine && (!prev || prev.author !== m.author);
+          return <Bubble key={m.id} msg={m} showAuthor={showAuthor} isGroup={isGroup || isAnnounce}
+            chatId={chat.id} onOpenReactions={() => setReactionPickerFor(m.id)}
+            isAnnounce={isAnnounce} canReact={!supervising} />;
         })}
       </div>
 
+      {/* Reaction picker sheet */}
+      {reactionPickerFor && (
+        <div onClick={() => setReactionPickerFor(null)} style={{
+          position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)',
+          display: 'flex', alignItems: 'flex-end', zIndex: 50,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            width: '100%', background: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+            padding: '14px 20px 30px',
+          }}>
+            <div style={{ width: 40, height: 4, background: '#D1D5DB', borderRadius: 999, margin: '0 auto 14px' }} />
+            <div style={{ fontSize: 11, fontWeight: 700, color: TZ.muted, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10 }}>
+              Reaccionar
+            </div>
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'space-around' }}>
+              {AVAILABLE_REACTIONS.map(emoji => (
+                <button key={emoji} onClick={() => handleReact(reactionPickerFor, emoji)} style={{
+                  width: 54, height: 54, borderRadius: '50%',
+                  border: 0, background: '#F4F5F8', cursor: 'pointer',
+                  fontSize: 28, transition: 'transform 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.15)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Composer */}
-      {!supervising ? (
+      {canWrite ? (
         <div style={{
           padding: '10px 12px 30px', background: '#F4F5F8',
           borderTop: '1px solid ' + TZ.line,
@@ -309,26 +467,36 @@ function ChatConversation({ chat, back, role, supervising = false }) {
           <div style={{
             flex: 1, background: '#fff', borderRadius: 22,
             display: 'flex', alignItems: 'center', padding: '6px 12px 6px 14px',
-            border: '1px solid ' + TZ.line,
+            border: isAnnounce ? '1.5px solid ' + TZ.primary : '1px solid ' + TZ.line,
           }}>
-            <input value={text} onChange={e => setText(e.target.value)} placeholder="Mensaje…"
+            <input value={text} onChange={e => setText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSend(); }}
+              placeholder={isAnnounce ? 'Publicar anuncio al club…' : 'Mensaje…'}
               style={{ flex: 1, border: 0, outline: 'none', background: 'transparent', fontSize: 14, padding: '6px 0' }} />
             <button style={{ background: 'transparent', border: 0, cursor: 'pointer', padding: 0 }}>
               <span style={{ fontSize: 20 }}>😊</span>
             </button>
           </div>
           {text ? (
-            <button style={{
-              ...composerBtn, background: TZ.primary, color: '#fff',
+            <button onClick={handleSend} style={{
+              ...composerBtn, background: isAnnounce ? '#F5B301' : TZ.primary, color: isAnnounce ? TZ.primaryDark : '#fff',
               boxShadow: '0 2px 6px rgba(29,61,138,0.35)',
             }}>
-              <Icon name="play" size={16} color="#fff" />
+              <Icon name="play" size={16} color={isAnnounce ? TZ.primaryDark : '#fff'} />
             </button>
           ) : (
             <button style={composerBtn}>
-              <span style={{ fontSize: 18 }}>🎤</span>
+              <span style={{ fontSize: 18 }}>{isAnnounce ? '📢' : '🎤'}</span>
             </button>
           )}
+        </div>
+      ) : isAnnounce && !supervising ? (
+        <div style={{
+          padding: '14px 20px 34px', background: '#F4F5F8',
+          borderTop: '1px solid ' + TZ.line,
+          textAlign: 'center', fontSize: 12, color: TZ.muted, fontWeight: 600, flexShrink: 0,
+        }}>
+          👁 Canal solo lectura · Toca cualquier anuncio para reaccionar
         </div>
       ) : (
         <div style={{
@@ -343,8 +511,23 @@ function ChatConversation({ chat, back, role, supervising = false }) {
   );
 }
 
-function Bubble({ msg: m, showAuthor, isGroup }) {
-  const bg = m.mine ? '#DCF8C6' : m.role === 'coach' && isGroup ? '#DBEAFE' : m.role === 'admin' && isGroup ? '#FEF3C7' : '#fff';
+function Bubble({ msg: m, showAuthor, isGroup, chatId, onOpenReactions, isAnnounce, canReact }) {
+  const [tick, setTick] = React.useState(0);
+  React.useEffect(() => {
+    const h = (e) => {
+      if (e.detail?.chatId === chatId && e.detail?.msgId === m.id) setTick(t => t + 1);
+    };
+    window.addEventListener('tz-reactions-change', h);
+    return () => window.removeEventListener('tz-reactions-change', h);
+  }, [chatId, m.id]);
+
+  const reactions = React.useMemo(() => chatId ? getReactions(chatId, m.id) : {}, [chatId, m.id, tick]);
+  const hasReactions = Object.keys(reactions).length > 0;
+
+  const bg = m.mine ? '#DCF8C6'
+    : m.role === 'coach' && isGroup ? '#DBEAFE'
+    : m.role === 'admin' && (isGroup || isAnnounce) ? '#FEF3C7'
+    : '#fff';
   const roleColor = m.role === 'admin' ? '#1E40AF' : m.role === 'coach' ? TZ.primary : TZ.inkSoft;
   const roleLabel = m.role === 'admin' ? 'ADMIN' : m.role === 'coach' ? 'COACH' : null;
 
@@ -365,8 +548,17 @@ function Bubble({ msg: m, showAuthor, isGroup }) {
     );
   }
 
+  // Anuncio: burbuja full width con estilo card
+  const isAnnounceBubble = isAnnounce && m.role === 'admin';
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: m.mine ? 'flex-end' : 'flex-start', maxWidth: '85%', alignSelf: m.mine ? 'flex-end' : 'flex-start' }}>
+    <div style={{
+      display: 'flex', flexDirection: 'column',
+      alignItems: isAnnounceBubble ? 'stretch' : (m.mine ? 'flex-end' : 'flex-start'),
+      maxWidth: isAnnounceBubble ? '95%' : '85%',
+      alignSelf: isAnnounceBubble ? 'stretch' : (m.mine ? 'flex-end' : 'flex-start'),
+      margin: isAnnounceBubble ? '4px 6px' : 0,
+    }}>
       {showAuthor && (
         <div style={{ fontSize: 10, fontWeight: 700, color: roleColor, marginLeft: 12, marginBottom: 2, marginTop: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
           <span>{m.author}</span>
@@ -378,20 +570,63 @@ function Bubble({ msg: m, showAuthor, isGroup }) {
           )}
         </div>
       )}
-      <div style={{
-        padding: '7px 12px 6px', background: bg, borderRadius: 12,
-        borderTopLeftRadius: !m.mine && !showAuthor ? 4 : 12,
-        borderTopRightRadius: m.mine && !showAuthor ? 4 : 12,
-        boxShadow: '0 1px 1px rgba(0,0,0,0.06)',
-        fontSize: 13.5, color: TZ.ink, lineHeight: 1.4,
-        whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-      }}>
+      <div
+        onClick={() => canReact && chatId && onOpenReactions && onOpenReactions(m.id)}
+        style={{
+          padding: isAnnounceBubble ? '12px 14px 10px' : '7px 12px 6px',
+          background: bg,
+          borderRadius: isAnnounceBubble ? 14 : 12,
+          borderTopLeftRadius: !m.mine && !showAuthor && !isAnnounceBubble ? 4 : (isAnnounceBubble ? 14 : 12),
+          borderTopRightRadius: m.mine && !showAuthor && !isAnnounceBubble ? 4 : (isAnnounceBubble ? 14 : 12),
+          boxShadow: isAnnounceBubble ? '0 2px 6px rgba(0,0,0,0.08)' : '0 1px 1px rgba(0,0,0,0.06)',
+          fontSize: isAnnounceBubble ? 14 : 13.5, color: TZ.ink, lineHeight: 1.4,
+          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+          cursor: canReact && chatId ? 'pointer' : 'default',
+          border: isAnnounceBubble ? '1px solid #FDE68A' : 0,
+        }}>
         {m.text}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginLeft: 8, verticalAlign: 'baseline' }}>
           <span style={{ fontSize: 10, color: '#7A8695', fontWeight: 500 }}>{m.at}</span>
           {m.mine && <span style={{ fontSize: 10, color: '#4FC3F7' }}>✓✓</span>}
         </span>
       </div>
+
+      {/* Reactions row */}
+      {(hasReactions || (canReact && chatId)) && (
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4,
+          alignSelf: isAnnounceBubble ? 'stretch' : (m.mine ? 'flex-end' : 'flex-start'),
+          paddingLeft: isAnnounceBubble ? 4 : (m.mine ? 0 : 8),
+          paddingRight: isAnnounceBubble ? 4 : (m.mine ? 8 : 0),
+        }}>
+          {Object.entries(reactions).map(([emoji, data]) => {
+            const iReacted = data.users?.includes('me');
+            return (
+              <button key={emoji} onClick={(e) => {
+                e.stopPropagation();
+                if (canReact && chatId) { toggleReaction(chatId, m.id, emoji); }
+              }} style={{
+                background: iReacted ? 'rgba(29,61,138,0.15)' : '#fff',
+                border: iReacted ? '1px solid ' + TZ.primary : '1px solid ' + TZ.line,
+                borderRadius: 999, padding: '2px 8px 2px 6px',
+                fontSize: 11, cursor: canReact && chatId ? 'pointer' : 'default',
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+                fontWeight: 600, color: iReacted ? TZ.primary : TZ.inkSoft,
+              }}>
+                <span style={{ fontSize: 13 }}>{emoji}</span>
+                <span>{data.count}</span>
+              </button>
+            );
+          })}
+          {canReact && chatId && (
+            <button onClick={(e) => { e.stopPropagation(); onOpenReactions(m.id); }} style={{
+              background: 'rgba(255,255,255,0.7)', border: '1px dashed ' + TZ.line,
+              borderRadius: 999, padding: '2px 7px', fontSize: 12, cursor: 'pointer',
+              color: TZ.muted, fontWeight: 600,
+            }}>+</button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -615,7 +850,13 @@ function allAdminChats() {
     { id: 'dm-2', kind: 'direct', title: 'Roberto García ↔ Admin', subtitle: 'Padre + Admin', last: '¿Podemos hablar sobre la cuota?', when: '09:15', unread: 0, roleTag: 'DM', avatar: 'RG' },
     { id: 'dm-3', kind: 'direct', title: 'Ana Mendoza ↔ Coach Ortiz', subtitle: 'Madre + Coach Sub-8', last: 'Iker va a llegar tarde', when: 'Ayer', unread: 0, roleTag: 'DM', avatar: 'AM' },
   ];
-  return [...groups, ...dms];
+  // Canal oficial de anuncios (admin puede publicar aquí)
+  const anuncios = [
+    { id: 'club-broadcast', kind: 'announce', title: 'Anuncios del club',
+      subtitle: 'Canal oficial · Publicar aquí envía push a todos', last: '🏆 ¡GANAMOS EL TORNEO INTERFILIAL!',
+      when: 'Lun', unread: 0 },
+  ];
+  return [...anuncios, ...groups, ...dms];
 }
 
 function defaultDMMsgs(chat) {

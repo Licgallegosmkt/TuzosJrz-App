@@ -4,6 +4,8 @@ function Players({ nav, openPlayer }) {
   const { PLAYERS, CATEGORIES } = window.TZ_DATA;
   const [category, setCategory] = React.useState('Todos');
   const [query, setQuery] = React.useState('');
+  const [addMenu, setAddMenu] = React.useState(false);
+  const [modal, setModal] = React.useState(null); // 'newPlayer' | 'inviteTutor' | 'import'
 
   const filtered = PLAYERS.filter(p => {
     if (category !== 'Todos' && p.category !== category) return false;
@@ -22,7 +24,7 @@ function Players({ nav, openPlayer }) {
       <ScreenHeader
         title="Jugadores"
         subtitle={`${PLAYERS.length} en plantilla`}
-        right={<button style={pillBtn}><Icon name="plus" size={18} color="#fff" /></button>}
+        right={<button style={pillBtn} onClick={() => setAddMenu(true)}><Icon name="plus" size={18} color="#fff" /></button>}
       />
       <div style={{ padding: '0 16px' }}>
         {/* search */}
@@ -81,9 +83,451 @@ function Players({ nav, openPlayer }) {
           </div>
         ))}
       </div>
+
+      {/* Bottom sheet: menú de agregar */}
+      {addMenu && (
+        <AddPlayerMenu
+          onClose={() => setAddMenu(false)}
+          onPick={(id) => { setAddMenu(false); setModal(id); }}
+        />
+      )}
+
+      {/* Modales secundarios */}
+      {modal === 'newPlayer' && (
+        <NewPlayerModal onClose={() => setModal(null)} />
+      )}
+      {modal === 'inviteTutor' && (
+        <QuickInviteModal onClose={() => setModal(null)} />
+      )}
+      {modal === 'import' && (
+        <ImportPlayersModal onClose={() => setModal(null)} />
+      )}
     </div>
   );
 }
+
+// ═══════════════════════════════════════════════════════════
+// ADD PLAYER MENU — bottom sheet con 3 opciones
+// ═══════════════════════════════════════════════════════════
+function AddPlayerMenu({ onClose, onPick }) {
+  const options = [
+    {
+      id: 'newPlayer',
+      icon: '👶',
+      title: 'Nuevo jugador',
+      sub: 'Crear perfil del niño + invitar tutor',
+      color: TZ.primary,
+    },
+    {
+      id: 'inviteTutor',
+      icon: '📧',
+      title: 'Invitar tutor',
+      sub: 'Vincular con un jugador existente',
+      color: '#16A34A',
+    },
+    {
+      id: 'import',
+      icon: '📥',
+      title: 'Importar lista (CSV / Excel)',
+      sub: 'Útil para inicio de temporada',
+      color: '#7C3AED',
+    },
+  ];
+  return (
+    <div onClick={onClose} style={{
+      position: 'absolute', inset: 0, zIndex: 100,
+      background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'flex-end',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', background: '#fff',
+        borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        padding: '10px 20px 34px',
+      }}>
+        <div style={{ width: 40, height: 4, background: '#D1D5DB', borderRadius: 999, margin: '4px auto 14px' }} />
+
+        <div style={{ fontSize: 18, fontWeight: 800, color: TZ.ink, marginBottom: 4 }}>
+          ➕ Agregar al club
+        </div>
+        <div style={{ fontSize: 12, color: TZ.muted, marginBottom: 18 }}>
+          ¿Qué quieres hacer?
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {options.map(o => (
+            <button key={o.id} onClick={() => onPick(o.id)} style={{
+              padding: 14, borderRadius: 14,
+              border: '1.5px solid ' + TZ.line, background: '#fff',
+              cursor: 'pointer', textAlign: 'left',
+              display: 'flex', alignItems: 'center', gap: 14,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#F4F5F8'}
+            onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+              <div style={{
+                width: 48, height: 48, borderRadius: 12, flexShrink: 0,
+                background: o.color + '15', color: o.color,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 24,
+              }}>{o.icon}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: TZ.ink }}>{o.title}</div>
+                <div style={{ fontSize: 12, color: TZ.muted, marginTop: 2 }}>{o.sub}</div>
+              </div>
+              <span style={{ fontSize: 18, color: TZ.muted }}>›</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// NEW PLAYER MODAL — admin crea un jugador nuevo
+// ═══════════════════════════════════════════════════════════
+function NewPlayerModal({ onClose }) {
+  const { CATEGORIES, POSITIONS } = window.TZ_DATA;
+  const [first, setFirst] = React.useState('');
+  const [last, setLast] = React.useState('');
+  const [cat, setCat] = React.useState('Sub-10');
+  const [pos, setPos] = React.useState('DC');
+  const [num, setNum] = React.useState('');
+  const [birth, setBirth] = React.useState('');
+  const [inviteTutor, setInviteTutor] = React.useState(true);
+
+  const canSave = first && last && birth && num;
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'absolute', inset: 0, zIndex: 110,
+      background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'flex-end',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', background: '#fff',
+        borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        padding: '10px 20px 34px', maxHeight: '90%', overflow: 'auto',
+      }}>
+        <div style={{ width: 40, height: 4, background: '#D1D5DB', borderRadius: 999, margin: '4px auto 14px' }} />
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: TZ.ink }}>👶 Nuevo jugador</div>
+            <div style={{ fontSize: 12, color: TZ.muted, marginTop: 2 }}>Datos básicos del niño</div>
+          </div>
+          <button onClick={onClose} style={closeBtn}><Icon name="close" size={16} color={TZ.inkSoft} /></button>
+        </div>
+
+        {/* Nombres */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+          <Field label="Nombre(s)" value={first} onChange={setFirst} placeholder="Diego" />
+          <Field label="Apellidos" value={last} onChange={setLast} placeholder="Hernández" />
+        </div>
+
+        {/* Fecha nacimiento */}
+        <Field label="Fecha de nacimiento" value={birth} onChange={setBirth} type="date" />
+
+        {/* Categoría */}
+        <div style={{ marginTop: 14, marginBottom: 6, fontSize: 11, fontWeight: 700, color: TZ.muted, letterSpacing: 0.8, textTransform: 'uppercase' }}>
+          Categoría
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {CATEGORIES.map(c => (
+            <button key={c} onClick={() => setCat(c)} style={{
+              padding: '8px 14px', borderRadius: 999,
+              border: cat === c ? `2px solid ${TZ.primary}` : '1px solid ' + TZ.line,
+              background: cat === c ? 'rgba(29,61,138,0.05)' : '#fff',
+              fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              color: cat === c ? TZ.primary : TZ.inkSoft,
+            }}>{c}</button>
+          ))}
+        </div>
+
+        {/* Posición + dorsal */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10, marginTop: 14 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: TZ.muted, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>
+              Posición
+            </div>
+            <select value={pos} onChange={e => setPos(e.target.value)} style={{
+              width: '100%', padding: '12px', borderRadius: 10, border: '1px solid ' + TZ.line,
+              fontSize: 14, background: '#fff', color: TZ.ink, cursor: 'pointer',
+            }}>
+              {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <Field label="Dorsal" value={num} onChange={setNum} type="number" placeholder="7" />
+        </div>
+
+        {/* Toggle invitar tutor */}
+        <label style={{
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+          padding: 12, background: '#F4F5F8', borderRadius: 12,
+          marginTop: 18, cursor: 'pointer',
+        }}>
+          <input type="checkbox" checked={inviteTutor} onChange={e => setInviteTutor(e.target.checked)}
+            style={{ marginTop: 3, width: 18, height: 18, accentColor: TZ.primary }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: TZ.ink }}>Invitar tutor después de crear</div>
+            <div style={{ fontSize: 11, color: TZ.muted, marginTop: 2 }}>Se abrirá el modal de invitación con el jugador recién creado</div>
+          </div>
+        </label>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+          <button onClick={onClose} style={{
+            flex: 1, padding: '14px', borderRadius: 12,
+            background: '#EEF0F4', color: TZ.ink, border: 0,
+            fontSize: 13, fontWeight: 700, cursor: 'pointer',
+          }}>Cancelar</button>
+          <button onClick={onClose} disabled={!canSave} style={{
+            flex: 2, padding: '14px', borderRadius: 12,
+            background: canSave ? TZ.primary : '#CBD5E1', color: '#fff', border: 0,
+            fontSize: 14, fontWeight: 800, cursor: canSave ? 'pointer' : 'not-allowed',
+            boxShadow: canSave ? '0 4px 12px rgba(29,61,138,0.3)' : 'none',
+          }}>
+            {inviteTutor ? 'Crear y continuar →' : 'Crear jugador'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// QUICK INVITE MODAL — invitar tutor con jugador existente
+// ═══════════════════════════════════════════════════════════
+function QuickInviteModal({ onClose }) {
+  const { PLAYERS } = window.TZ_DATA;
+  const [query, setQuery] = React.useState('');
+  const [selected, setSelected] = React.useState(null);
+
+  const filtered = PLAYERS.filter(p =>
+    !query || p.name.toLowerCase().includes(query.toLowerCase())
+  ).slice(0, 10);
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'absolute', inset: 0, zIndex: 110,
+      background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'flex-end',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', background: '#fff',
+        borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        padding: '10px 20px 34px', maxHeight: '90%', overflow: 'auto',
+      }}>
+        <div style={{ width: 40, height: 4, background: '#D1D5DB', borderRadius: 999, margin: '4px auto 14px' }} />
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: TZ.ink }}>📧 Invitar tutor</div>
+            <div style={{ fontSize: 12, color: TZ.muted, marginTop: 2 }}>Selecciona el jugador a vincular</div>
+          </div>
+          <button onClick={onClose} style={closeBtn}><Icon name="close" size={16} color={TZ.inkSoft} /></button>
+        </div>
+
+        {/* Buscador */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: '#F4F5F8', borderRadius: 12, padding: '10px 14px',
+          border: '1px solid ' + TZ.line, marginBottom: 12,
+        }}>
+          <Icon name="search" size={18} color={TZ.muted} />
+          <input value={query} onChange={e => setQuery(e.target.value)}
+            placeholder="Buscar jugador por nombre…"
+            autoFocus
+            style={{ border: 0, outline: 'none', flex: 1, fontSize: 14, background: 'transparent' }} />
+        </div>
+
+        {/* Lista */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflow: 'auto' }}>
+          {filtered.map(p => (
+            <button key={p.id} onClick={() => setSelected(p.id)} style={{
+              padding: 10, borderRadius: 10,
+              border: selected === p.id ? '2px solid ' + TZ.primary : '1px solid ' + TZ.line,
+              background: selected === p.id ? 'rgba(29,61,138,0.05)' : '#fff',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
+            }}>
+              <Avatar player={p} size={38} showNumber={false} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: TZ.ink }}>{p.name}</div>
+                <div style={{ fontSize: 11, color: TZ.muted, marginTop: 1 }}>
+                  {p.category} · #{p.number} · {p.position}
+                </div>
+              </div>
+              {selected === p.id && <Icon name="check" size={18} color={TZ.primary} />}
+            </button>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+          <button onClick={onClose} style={{
+            flex: 1, padding: '14px', borderRadius: 12,
+            background: '#EEF0F4', color: TZ.ink, border: 0,
+            fontSize: 13, fontWeight: 700, cursor: 'pointer',
+          }}>Cancelar</button>
+          <button onClick={onClose} disabled={!selected} style={{
+            flex: 2, padding: '14px', borderRadius: 12,
+            background: selected ? '#16A34A' : '#CBD5E1', color: '#fff', border: 0,
+            fontSize: 14, fontWeight: 800, cursor: selected ? 'pointer' : 'not-allowed',
+            boxShadow: selected ? '0 4px 12px rgba(22,163,74,0.3)' : 'none',
+          }}>
+            Continuar a invitación →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// IMPORT PLAYERS MODAL — subir CSV / Excel
+// ═══════════════════════════════════════════════════════════
+function ImportPlayersModal({ onClose }) {
+  const [step, setStep] = React.useState('upload'); // upload | preview | done
+  const [count, setCount] = React.useState(0);
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'absolute', inset: 0, zIndex: 110,
+      background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'flex-end',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', background: '#fff',
+        borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        padding: '10px 20px 34px', maxHeight: '90%', overflow: 'auto',
+      }}>
+        <div style={{ width: 40, height: 4, background: '#D1D5DB', borderRadius: 999, margin: '4px auto 14px' }} />
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: TZ.ink }}>📥 Importar jugadores</div>
+            <div style={{ fontSize: 12, color: TZ.muted, marginTop: 2 }}>Carga masiva desde CSV o Excel</div>
+          </div>
+          <button onClick={onClose} style={closeBtn}><Icon name="close" size={16} color={TZ.inkSoft} /></button>
+        </div>
+
+        {step === 'upload' && (
+          <>
+            {/* Download template */}
+            <div style={{
+              padding: 14, background: '#EFF6FF', border: '1px solid #DBEAFE',
+              borderRadius: 12, display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 20 }}>💡</div>
+              <div style={{ flex: 1, fontSize: 12, color: '#1E3A8A', lineHeight: 1.5 }}>
+                <strong>Primera vez?</strong> Descarga la plantilla con las columnas correctas:<br />
+                <strong>Nombre, Apellidos, Fecha nacimiento, Categoría, Posición, Dorsal, Email tutor, Teléfono tutor</strong>
+              </div>
+            </div>
+            <button style={{
+              width: '100%', padding: '12px', borderRadius: 10, border: '1.5px solid ' + TZ.primary,
+              background: '#fff', color: TZ.primary, cursor: 'pointer',
+              fontSize: 13, fontWeight: 700, marginBottom: 16,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}>
+              📥 Descargar plantilla
+            </button>
+
+            {/* Upload zone */}
+            <label style={{
+              display: 'block', padding: '32px 20px', borderRadius: 14,
+              border: '2px dashed ' + TZ.line, background: '#F4F5F8',
+              cursor: 'pointer', textAlign: 'center',
+            }}>
+              <input type="file" accept=".csv,.xlsx,.xls" style={{ display: 'none' }}
+                onChange={() => { setCount(23); setStep('preview'); }} />
+              <div style={{ fontSize: 36 }}>📄</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: TZ.ink, marginTop: 8 }}>
+                Toca para subir archivo
+              </div>
+              <div style={{ fontSize: 11, color: TZ.muted, marginTop: 4 }}>
+                CSV, XLSX o XLS · máx 5 MB
+              </div>
+            </label>
+          </>
+        )}
+
+        {step === 'preview' && (
+          <>
+            <div style={{
+              padding: 14, background: '#F0FDF4', border: '1px solid #BBF7D0',
+              borderRadius: 12, marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#166534' }}>
+                ✓ Archivo procesado
+              </div>
+              <div style={{ fontSize: 12, color: '#166534', marginTop: 4 }}>
+                Se detectaron <strong>{count} jugadores</strong> listos para importar.
+              </div>
+            </div>
+
+            {/* Vista previa simulada */}
+            <div style={{ fontSize: 11, fontWeight: 700, color: TZ.muted, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>
+              Vista previa (primeros 3)
+            </div>
+            <div style={{ background: '#F4F5F8', borderRadius: 10, padding: 10, fontSize: 11, color: TZ.inkSoft, fontFamily: 'monospace', lineHeight: 1.6 }}>
+              Diego Hernández · Sub-12 · DC · #7<br />
+              Iker Castro · Sub-10 · POR · #1<br />
+              Mateo Rivera · Sub-14 · MC · #10<br />
+              <span style={{ opacity: 0.5 }}>…y 20 más</span>
+            </div>
+
+            {/* Opciones */}
+            <label style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              padding: 12, background: '#F4F5F8', borderRadius: 10,
+              marginTop: 14, cursor: 'pointer',
+            }}>
+              <input type="checkbox" defaultChecked
+                style={{ marginTop: 3, width: 18, height: 18, accentColor: TZ.primary }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: TZ.ink }}>Enviar invitación automática a todos los tutores</div>
+                <div style={{ fontSize: 10, color: TZ.muted, marginTop: 2 }}>Se enviará email con código único a cada tutor</div>
+              </div>
+            </label>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+              <button onClick={() => setStep('upload')} style={{
+                flex: 1, padding: '14px', borderRadius: 12,
+                background: '#EEF0F4', color: TZ.ink, border: 0,
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              }}>Regresar</button>
+              <button onClick={onClose} style={{
+                flex: 2, padding: '14px', borderRadius: 12,
+                background: '#7C3AED', color: '#fff', border: 0,
+                fontSize: 14, fontWeight: 800, cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(124,58,237,0.3)',
+              }}>
+                Importar {count} jugadores
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Field helper ────────────────────────────────────────────
+function Field({ label, value, onChange, placeholder, type = 'text' }) {
+  return (
+    <div style={{ marginBottom: 2 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: TZ.muted, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>
+        {label}
+      </div>
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={{
+        width: '100%', padding: '12px', borderRadius: 10, border: '1px solid ' + TZ.line,
+        fontSize: 14, outline: 'none', color: TZ.ink, boxSizing: 'border-box',
+      }} />
+    </div>
+  );
+}
+
+const closeBtn = {
+  width: 32, height: 32, borderRadius: '50%', border: 0, background: '#EEF0F4', cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+};
 
 function PlayerProfile({ playerId, back }) {
   const p = window.TZ_DATA.PLAYERS.find(x => x.id === playerId);

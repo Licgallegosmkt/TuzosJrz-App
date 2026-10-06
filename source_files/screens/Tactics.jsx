@@ -18,6 +18,7 @@ function Tactics({ nav, fullscreen, setFullscreen }) {
   const [layers, setLayers] = React.useState({ players: true, materials: true, arrows: true });
   const [panel, setPanel] = React.useState('players'); // players | materials | arrows | templates
   const [panelOpen, setPanelOpen] = React.useState(true);
+  const [openMenu, setOpenMenu] = React.useState(null); // null | 'formation' | 'players' | 'materials' | 'arrows' | 'templates'
 
   const formations = mode === '11v11' ? FORMATIONS_11 : FORMATIONS_8;
   const formationKeys = Object.keys(formations);
@@ -69,7 +70,13 @@ function Tactics({ nav, fullscreen, setFullscreen }) {
   };
 
   const clearAll = (kind) => {
-    setItems(prev => prev.filter(it => it.kind !== kind));
+    if (kind) {
+      // Borrar solo un tipo específico (material, arrow, player)
+      setItems(prev => prev.filter(it => it.kind !== kind));
+    } else {
+      // Sin parámetro: borra materiales + flechas (deja jugadores en la formación)
+      setItems(prev => prev.filter(it => it.kind === 'player'));
+    }
     setSelectedId(null);
   };
 
@@ -115,12 +122,8 @@ function Tactics({ nav, fullscreen, setFullscreen }) {
               <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{mode} · {formation}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <LayerToggles layers={layers} setLayers={setLayers} />
-            <button style={{ ...fullBtnDark, background: '#F5B301', color: TZ.primaryDark }}
-              onClick={() => setPanel('templates')}>
-              <Icon name="doc" size={16} color={TZ.primaryDark} />
-            </button>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
+            {items.filter(i => i.kind === 'player').length} jugadores · {items.filter(i => i.kind === 'material').length} materiales
           </div>
         </div>
       )}
@@ -148,26 +151,51 @@ function Tactics({ nav, fullscreen, setFullscreen }) {
           </div>
         )}
 
-        {/* Fullscreen controls bar (top of pitch column) */}
+        {/* Fullscreen — top toolbar + pitch with dropdown menus */}
         {fullscreen && (
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <SegBar label="Modalidad" options={['11v11', '8v8']} value={mode} onChange={setMode} dark />
-              <SegBar label="Formación" options={formationKeys} value={formation} onChange={setFormation} dark />
-              <SegBar label="Equipos" options={[
-                { id: 'home', label: 'Local' },
-                { id: 'away', label: 'Rival' },
-                { id: 'both', label: 'Ambos' },
-              ]} value={team} onChange={setTeam} dark />
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Top toolbar with menu buttons + tools + teams */}
+            <div style={{
+              display: 'flex', gap: 6, alignItems: 'center',
+              padding: '6px 8px', background: 'rgba(0,0,0,0.5)',
+              borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)',
+              flexWrap: 'wrap',
+            }}>
+              {/* Menu triggers */}
+              <MenuBtn icon="⚙️" label={mode + ' · ' + formation}
+                active={openMenu === 'formation'}
+                onClick={() => setOpenMenu(openMenu === 'formation' ? null : 'formation')} />
+              <MenuBtn icon="👥" label="Jugadores"
+                active={openMenu === 'players'}
+                onClick={() => setOpenMenu(openMenu === 'players' ? null : 'players')} />
+              <MenuBtn icon="🧡" label="Materiales"
+                active={openMenu === 'materials'}
+                onClick={() => setOpenMenu(openMenu === 'materials' ? null : 'materials')} />
+              <MenuBtn icon="↗️" label="Flechas"
+                active={openMenu === 'arrows'}
+                onClick={() => setOpenMenu(openMenu === 'arrows' ? null : 'arrows')} />
+              <MenuBtn icon="💾" label="Guardar"
+                active={openMenu === 'templates'}
+                onClick={() => setOpenMenu(openMenu === 'templates' ? null : 'templates')} />
+
+              <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.15)', margin: '0 4px' }} />
+
               <div style={{ flex: 1 }} />
-              <SegBar label="Herramienta" options={[
-                { id: 'move',  label: '✋' },
-                { id: 'arrow', label: '↗️' },
-                { id: 'erase', label: '🧽' },
-              ]} value={tool} onChange={setTool} dark />
+
+              {/* Layer toggles */}
+              <LayerToggles layers={layers} setLayers={setLayers} compact />
+
+              <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.15)', margin: '0 4px' }} />
+
+              {/* Team selector */}
+              <TeamBtn label="Local" active={team === 'home'} onClick={() => setTeam('home')} />
+              <TeamBtn label="Rival" active={team === 'away'} onClick={() => setTeam('away')} />
+              <TeamBtn label="Ambos" active={team === 'both'} onClick={() => setTeam('both')} />
             </div>
 
-            <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+            {/* Pitch area with overlay dropdown */}
+            <div style={{ flex: 1, minHeight: 0, position: 'relative',
+              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Pitch
                 mode={mode}
                 items={items}
@@ -185,6 +213,22 @@ function Tactics({ nav, fullscreen, setFullscreen }) {
                 duplicateItem={duplicateItem}
                 layers={layers}
               />
+
+              {/* Dropdown menu overlay */}
+              {openMenu && (
+                <DropdownPanel
+                  panel={openMenu}
+                  onClose={() => setOpenMenu(null)}
+                  mode={mode} setMode={setMode}
+                  formation={formation} setFormation={setFormation}
+                  formationKeys={formationKeys}
+                  addMaterial={addMaterial}
+                  arrowType={arrowType} setArrowType={setArrowType}
+                  tool={tool} setTool={setTool}
+                  items={items} setItems={setItems}
+                  clearAll={clearAll}
+                />
+              )}
             </div>
           </div>
         )}
@@ -210,25 +254,7 @@ function Tactics({ nav, fullscreen, setFullscreen }) {
           />
         )}
 
-        {/* SIDE PANEL — fullscreen only */}
-        {fullscreen && (
-          <SidePanel
-            open={panelOpen}
-            setOpen={setPanelOpen}
-            panel={panel}
-            setPanel={setPanel}
-            addMaterial={addMaterial}
-            arrowType={arrowType}
-            setArrowType={setArrowType}
-            tool={tool}
-            setTool={setTool}
-            items={items}
-            setItems={setItems}
-            clearAll={clearAll}
-            mode={mode}
-            formation={formation}
-          />
-        )}
+        {/* Legacy SidePanel removed — replaced by DropdownPanel over pitch */}
 
         {/* Compact mobile controls below pitch */}
         {!fullscreen && (
@@ -296,7 +322,7 @@ function Tactics({ nav, fullscreen, setFullscreen }) {
 }
 
 // ── SIDE PANEL (fullscreen) ─────────────────────────────────
-function SidePanel({ open, setOpen, panel, setPanel, addMaterial, arrowType, setArrowType, tool, setTool, items, setItems, clearAll, mode, formation }) {
+function SidePanel({ open, setOpen, panel, setPanel, addMaterial, arrowType, setArrowType, tool, setTool, items, setItems, clearAll, mode, setMode, formation, setFormation, formationKeys }) {
   const [showTemplates, setShowTemplates] = React.useState(false);
 
   const tabs = [
@@ -347,12 +373,46 @@ function SidePanel({ open, setOpen, panel, setPanel, addMaterial, arrowType, set
           {/* Panel body */}
           <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
             {panel === 'players' && (
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5 }}>
-                Selecciona <strong style={{ color: '#fff' }}>formación</strong> arriba. Arrastra fichas en la cancha para reposicionarlas.
-                <div style={{ marginTop: 12, padding: 10, background: 'rgba(255,255,255,0.05)', borderRadius: 8 }}>
-                  <div style={{ fontSize: 10, opacity: 0.6, fontWeight: 700, letterSpacing: 0.5 }}>ACTUAL</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4, color: '#F5B301',
-                    fontFamily: '"Barlow Condensed", sans-serif', letterSpacing: 1 }}>{mode} · {formation}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* Modalidad selector */}
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: '#F5B301', marginBottom: 6, textTransform: 'uppercase' }}>
+                    Modalidad
+                  </div>
+                  <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: 3 }}>
+                    {['11v11', '8v8'].map(m => (
+                      <button key={m} onClick={() => setMode(m)} style={{
+                        flex: 1, padding: '10px', border: 0, borderRadius: 6,
+                        background: mode === m ? '#F5B301' : 'transparent',
+                        color: mode === m ? TZ.primaryDark : 'rgba(255,255,255,0.7)',
+                        fontSize: 13, fontWeight: 800, cursor: 'pointer', letterSpacing: 0.5,
+                        fontFamily: '"Barlow Condensed", sans-serif',
+                      }}>{m}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Formación selector */}
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: '#F5B301', marginBottom: 6, textTransform: 'uppercase' }}>
+                    Formación
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4 }}>
+                    {formationKeys.map(f => (
+                      <button key={f} onClick={() => setFormation(f)} style={{
+                        padding: '10px 8px', border: 0, borderRadius: 7,
+                        background: formation === f ? '#F5B301' : 'rgba(255,255,255,0.06)',
+                        color: formation === f ? TZ.primaryDark : '#fff',
+                        fontSize: 12, fontWeight: 800, cursor: 'pointer', letterSpacing: 0.3,
+                        fontFamily: '"Barlow Condensed", sans-serif',
+                      }}>{f}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5,
+                  padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 8 }}>
+                  💡 Arrastra las fichas en la cancha para reposicionarlas.
                 </div>
               </div>
             )}
@@ -509,12 +569,34 @@ function ArrowShape({ item, pitchW, pitchH, onClick, selected }) {
   const headSize = 2;
 
   return (
-    <g onClick={(e) => { e.stopPropagation(); onClick && onClick(); }}
+    <g
+      onMouseDown={(e) => {
+        if (onClick) {
+          e.stopPropagation();
+          e.nativeEvent.stopImmediatePropagation();
+          onClick();
+        }
+      }}
+      onTouchStart={(e) => {
+        if (onClick) {
+          e.stopPropagation();
+          e.nativeEvent.stopImmediatePropagation();
+          onClick();
+        }
+      }}
       style={{ cursor: onClick ? 'pointer' : 'default' }}>
+      {/* Path invisible más ancho para captar clicks fácilmente.
+         Usamos stroke con color casi transparente en lugar de "transparent"
+         porque algunos navegadores ignoran el hit-testing en stroke transparente. */}
+      <path d={d} stroke="rgba(0,0,0,0.01)" strokeWidth="4" fill="none"
+        strokeLinecap="round" strokeLinejoin="round"
+        style={{ pointerEvents: 'all', cursor: 'pointer' }} />
+      {/* Path visible */}
       <path d={d} stroke={stroke} strokeWidth={selected ? 0.9 : 0.6} fill="none"
         strokeLinecap="round" strokeLinejoin="round"
         strokeDasharray={dashArr}
-        filter={selected ? 'drop-shadow(0 0 2px rgba(245,179,1,0.8))' : undefined} />
+        filter={selected ? 'drop-shadow(0 0 2px rgba(245,179,1,0.8))' : undefined}
+        style={{ pointerEvents: 'none' }} />
       {/* Arrow head */}
       {item.type !== 'dotted' && item.type !== 'rotation' && (
         <polygon
@@ -523,7 +605,7 @@ function ArrowShape({ item, pitchW, pitchH, onClick, selected }) {
             ${toX(last) - Math.cos(angle - 0.5) * headSize},${toY(last) - Math.sin(angle - 0.5) * headSize * 0.66}
             ${toX(last) - Math.cos(angle) * headSize * 0.5},${toY(last) - Math.sin(angle) * headSize * 0.5 * 0.66}
             ${toX(last) - Math.cos(angle + 0.5) * headSize},${toY(last) - Math.sin(angle + 0.5) * headSize * 0.66}
-          `} fill={stroke} />
+          `} fill={stroke} style={{ pointerEvents: 'none' }} />
       )}
       {item.type === 'double' && (
         <polygon
@@ -532,29 +614,31 @@ function ArrowShape({ item, pitchW, pitchH, onClick, selected }) {
             ${toX(first) + Math.cos(angle - 0.5) * headSize},${toY(first) + Math.sin(angle - 0.5) * headSize * 0.66}
             ${toX(first) + Math.cos(angle) * headSize * 0.5},${toY(first) + Math.sin(angle) * headSize * 0.5 * 0.66}
             ${toX(first) + Math.cos(angle + 0.5) * headSize},${toY(first) + Math.sin(angle + 0.5) * headSize * 0.66}
-          `} fill={stroke} />
+          `} fill={stroke} style={{ pointerEvents: 'none' }} />
       )}
     </g>
   );
 }
 
 // ── LAYER TOGGLES ───────────────────────────────────────────
-function LayerToggles({ layers, setLayers }) {
+function LayerToggles({ layers, setLayers, compact }) {
   const items = [
-    { id: 'players',   icon: '👥' },
-    { id: 'materials', icon: '🧡' },
-    { id: 'arrows',    icon: '↗️' },
+    { id: 'players',   icon: '👥', title: 'Ver jugadores' },
+    { id: 'materials', icon: '🧡', title: 'Ver materiales' },
+    { id: 'arrows',    icon: '↗️', title: 'Ver flechas' },
   ];
+  const size = compact ? 28 : 34;
   return (
     <div style={{
-      display: 'flex', gap: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 10, padding: 3,
+      display: 'flex', gap: 3, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 2,
     }}>
       {items.map(it => (
-        <button key={it.id} onClick={() => setLayers(l => ({ ...l, [it.id]: !l[it.id] }))} style={{
-          width: 34, height: 34, borderRadius: 7, border: 0, cursor: 'pointer',
+        <button key={it.id} title={it.title}
+          onClick={() => setLayers(l => ({ ...l, [it.id]: !l[it.id] }))} style={{
+          width: size, height: size, borderRadius: 6, border: 0, cursor: 'pointer',
           background: layers[it.id] ? '#F5B301' : 'transparent',
           color: layers[it.id] ? '#000' : 'rgba(255,255,255,0.5)',
-          fontSize: 16, opacity: layers[it.id] ? 1 : 0.5,
+          fontSize: compact ? 13 : 16, opacity: layers[it.id] ? 1 : 0.5,
         }}>{it.icon}</button>
       ))}
     </div>
@@ -651,7 +735,16 @@ function MaterialThumb({ material, size = 28, dark }) {
   const Comp = window.MATERIAL_ICONS[material.icon];
   if (!Comp) return null;
   const color = material.hasColor ? window.MATERIAL_COLORS[material.defaultColor] : (dark ? '#fff' : '#0B1220');
-  return <Comp color={color} size={size} />;
+  // Contenedor de tamaño FIJO para que los iconos con width:100% (zone-r, zone-c) no se expandan
+  return (
+    <div style={{
+      width: size, height: size,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexShrink: 0, overflow: 'hidden',
+    }}>
+      <Comp color={color} size={size} />
+    </div>
+  );
 }
 
 // ── PITCH ───────────────────────────────────────────────────
@@ -672,25 +765,34 @@ function Pitch({ mode, items, setItems, team, fullscreen, tool, arrowType, drawi
   };
 
   const onDown = (id) => (e) => {
-    if (tool !== 'move' && tool !== 'erase') return;
+    if (tool !== 'move') return;
     e.preventDefault(); e.stopPropagation();
-    if (tool === 'erase') { deleteItem(id); return; }
-    setSelectedId(id); setDrag(id);
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const pt = getPct(e);
+    // Guardar offset entre el punto donde toca el usuario y el centro del item
+    // Así el item NO salta al centro del cursor — respeta desde dónde lo agarraste
+    setDrag({ id, offsetX: pt.x - item.x, offsetY: pt.y - item.y });
+    setSelectedId(id);
   };
   const onMove = (e) => {
     if (drag) {
       const pt = getPct(e);
-      updateItem(drag, pt);
+      // Aplica el offset guardado en onDown para respetar dónde tocaste el item
+      updateItem(drag.id, { x: pt.x - drag.offsetX, y: pt.y - drag.offsetY });
     } else if (resize) {
       const pt = getPct(e);
       const item = items.find(i => i.id === resize.id);
       if (!item) return;
-      const dw = (pt.x - resize.startX) * 2;
-      const dh = (pt.y - resize.startY) * 2;
-      updateItem(resize.id, {
-        w: Math.max(2, resize.startW + dw),
-        h: Math.max(2, resize.startH + dh),
-      });
+      // Resize desde cualquier esquina — el signo del delta depende de la esquina
+      // Corners: 'nw' | 'ne' | 'sw' | 'se'  (compass directions)
+      const dx = pt.x - resize.startX;
+      const dy = pt.y - resize.startY;
+      const signX = resize.corner.includes('e') ? 1 : -1;
+      const signY = resize.corner.includes('s') ? 1 : -1;
+      const newW = Math.max(2, resize.startW + dx * signX * 2);
+      const newH = Math.max(2, resize.startH + dy * signY * 2);
+      updateItem(resize.id, { w: newW, h: newH });
     } else if (rotate) {
       const pt = getPct(e);
       const item = items.find(i => i.id === rotate);
@@ -699,7 +801,13 @@ function Pitch({ mode, items, setItems, team, fullscreen, tool, arrowType, drawi
       updateItem(rotate, { rotation: angle });
     } else if (drawing) {
       const pt = getPct(e);
-      setDrawing(d => ({ ...d, path: [...d.path, pt] }));
+      // Throttle: solo añadir si está a ≥1.2% de distancia del último punto (evita explosión de puntos)
+      setDrawing(d => {
+        const last = d.path[d.path.length - 1];
+        const dx = pt.x - last.x, dy = pt.y - last.y;
+        if (dx * dx + dy * dy < 1.44) return d; // ~1.2% de distancia mínima
+        return { ...d, path: [...d.path, pt] };
+      });
     }
   };
   const onUp = () => {
@@ -713,6 +821,16 @@ function Pitch({ mode, items, setItems, team, fullscreen, tool, arrowType, drawi
     setDrag(null); setResize(null); setRotate(null);
   };
   const onPitchDown = (e) => {
+    // Si el usuario tocó una flecha existente (SVG path o group), NO iniciar dibujo/deselección
+    // El path invisible tiene pointer-events: stroke y su g padre tiene cursor: pointer
+    const target = e.target;
+    const isArrowElement = target && (
+      target.closest && target.closest('g[style*="cursor: pointer"]')
+    );
+    if (isArrowElement) {
+      // El click en la flecha lo maneja su propio onMouseDown (setSelectedId + stopPropagation)
+      return;
+    }
     if (tool === 'arrow') {
       const pt = getPct(e);
       setDrawing({ type: arrowType, path: [pt] });
@@ -724,12 +842,15 @@ function Pitch({ mode, items, setItems, team, fullscreen, tool, arrowType, drawi
     }
   };
 
-  const startResize = (id) => (e) => {
+  const startResize = (id, corner = 'se') => (e) => {
     e.stopPropagation();
+    e.preventDefault();
     const item = items.find(i => i.id === id);
     if (!item) return;
     const pt = getPct(e);
-    setResize({ id, startX: pt.x, startY: pt.y, startW: item.w, startH: item.h });
+    setResize({ id, corner, startX: pt.x, startY: pt.y,
+      startW: item.w, startH: item.h,
+      startCX: item.x, startCY: item.y });
   };
   const startRotate = (id) => (e) => {
     e.stopPropagation();
@@ -748,14 +869,15 @@ function Pitch({ mode, items, setItems, team, fullscreen, tool, arrowType, drawi
       onTouchMove={onMove} onTouchEnd={onUp}
       onMouseDown={onPitchDown} onTouchStart={onPitchDown}
       style={{
-        aspectRatio: fullscreen ? undefined : aspect,
-        height: fullscreen ? '100%' : undefined,
+        aspectRatio: aspect,
         width: '100%', maxWidth: '100%',
+        maxHeight: fullscreen ? '100%' : undefined,
+        margin: fullscreen ? 'auto' : undefined,
         borderRadius: 16, overflow: 'hidden', position: 'relative',
         background: 'linear-gradient(180deg, #1B7A3E 0%, #145E30 100%)',
         boxShadow: '0 8px 24px rgba(0,0,0,0.2), inset 0 0 60px rgba(0,0,0,0.15)',
         touchAction: 'none', userSelect: 'none',
-        cursor: tool === 'arrow' ? 'crosshair' : tool === 'erase' ? 'not-allowed' : 'default',
+        cursor: tool === 'arrow' ? 'crosshair' : 'default',
       }}>
       {/* mowing stripes */}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
@@ -764,22 +886,22 @@ function Pitch({ mode, items, setItems, team, fullscreen, tool, arrowType, drawi
       {/* Center crest */}
       <div style={{
         position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
-        width: fullscreen ? 78 : 46, height: fullscreen ? 78 : 46,
-        pointerEvents: 'none', zIndex: 1, opacity: 0.92,
+        width: fullscreen ? 86 : 50, height: fullscreen ? 86 : 50,
+        pointerEvents: 'none', zIndex: 3, opacity: 0.95,
         filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.45))',
       }}>
         <PitchCrest />
       </div>
 
-      {/* Pitch lines */}
+      {/* Pitch lines + arrows overlay */}
       <svg viewBox="0 0 100 66" preserveAspectRatio="none" style={{
-        position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 2,
+        position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 2,
       }}>
-        <g fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="0.35">
+        {/* Pitch lines — no reciben clicks (pointer-events: none en el grupo) */}
+        <g fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="0.35" style={{ pointerEvents: 'none' }}>
           <rect x="2" y="2" width="96" height="62" />
           <line x1="50" y1="2" x2="50" y2="64" />
           <circle cx="50" cy="33" r="7" />
-          <circle cx="50" cy="33" r="0.6" fill="rgba(255,255,255,0.75)" />
           {mode === '11v11' ? (
             <>
               <rect x="2" y="16" width="14" height="34" />
@@ -792,11 +914,11 @@ function Pitch({ mode, items, setItems, team, fullscreen, tool, arrowType, drawi
               <circle cx="89" cy="33" r="0.6" fill="rgba(255,255,255,0.75)" />
               <line x1="0.5" y1="28" x2="0.5" y2="38" strokeWidth="0.6" />
               <line x1="99.5" y1="28" x2="99.5" y2="38" strokeWidth="0.6" />
-              {/* Arcos de tiro de esquina (4) — más gruesos y visibles */}
-              <path d="M 2 4.5 A 2.5 2.5 0 0 1 4.5 2" strokeWidth="0.5" />
-              <path d="M 95.5 2 A 2.5 2.5 0 0 1 98 4.5" strokeWidth="0.5" />
-              <path d="M 98 61.5 A 2.5 2.5 0 0 1 95.5 64" strokeWidth="0.5" />
-              <path d="M 4.5 64 A 2.5 2.5 0 0 1 2 61.5" strokeWidth="0.5" />
+              {/* Arcos de tiro de esquina — arqueados hacia ADENTRO del campo */}
+              <path d="M 2 4.5 A 2.5 2.5 0 0 0 4.5 2" strokeWidth="0.5" />
+              <path d="M 95.5 2 A 2.5 2.5 0 0 0 98 4.5" strokeWidth="0.5" />
+              <path d="M 98 61.5 A 2.5 2.5 0 0 0 95.5 64" strokeWidth="0.5" />
+              <path d="M 4.5 64 A 2.5 2.5 0 0 0 2 61.5" strokeWidth="0.5" />
             </>
           ) : (
             <>
@@ -804,11 +926,11 @@ function Pitch({ mode, items, setItems, team, fullscreen, tool, arrowType, drawi
               <rect x="88" y="21" width="10" height="24" />
               <line x1="0.5" y1="28" x2="0.5" y2="38" strokeWidth="0.6" />
               <line x1="99.5" y1="28" x2="99.5" y2="38" strokeWidth="0.6" />
-              {/* Arcos de tiro de esquina (4) — más gruesos y visibles */}
-              <path d="M 2 4.5 A 2.5 2.5 0 0 1 4.5 2" strokeWidth="0.5" />
-              <path d="M 95.5 2 A 2.5 2.5 0 0 1 98 4.5" strokeWidth="0.5" />
-              <path d="M 98 61.5 A 2.5 2.5 0 0 1 95.5 64" strokeWidth="0.5" />
-              <path d="M 4.5 64 A 2.5 2.5 0 0 1 2 61.5" strokeWidth="0.5" />
+              {/* Arcos de tiro de esquina — arqueados hacia ADENTRO del campo */}
+              <path d="M 2 4.5 A 2.5 2.5 0 0 0 4.5 2" strokeWidth="0.5" />
+              <path d="M 95.5 2 A 2.5 2.5 0 0 0 98 4.5" strokeWidth="0.5" />
+              <path d="M 98 61.5 A 2.5 2.5 0 0 0 95.5 64" strokeWidth="0.5" />
+              <path d="M 4.5 64 A 2.5 2.5 0 0 0 2 61.5" strokeWidth="0.5" />
             </>
           )}
         </g>
@@ -816,7 +938,7 @@ function Pitch({ mode, items, setItems, team, fullscreen, tool, arrowType, drawi
         {/* Arrows */}
         {arrows.map(arr => (
           <ArrowShape key={arr.id} item={arr}
-            onClick={() => { if (tool === 'move') setSelectedId(arr.id); if (tool === 'erase') deleteItem(arr.id); }}
+            onClick={() => setSelectedId(arr.id)}
             selected={selectedId === arr.id} />
         ))}
         {drawing && drawing.path.length > 1 && (
@@ -836,24 +958,38 @@ function Pitch({ mode, items, setItems, team, fullscreen, tool, arrowType, drawi
               position: 'absolute', left: `${m.x}%`, top: `${m.y}%`,
               width: `${m.w}%`, height: `${m.h * (mode === '11v11' ? 68/105 : 50/75)}%`,
               transform: `translate(-50%, -50%) rotate(${m.rotation || 0}deg)`,
-              cursor: tool === 'move' ? 'grab' : tool === 'erase' ? 'not-allowed' : 'default',
+              cursor: tool === 'move' ? 'grab' : 'default',
               zIndex: isSel ? 25 : 5,
               outline: isSel ? '2px dashed #F5B301' : 'none',
               outlineOffset: 2,
+              // Fondo transparente EXPLÍCITO para captar clicks en toda el área
+              // (necesario para zonas rect/circle con fill semi-transparente)
+              background: 'rgba(0,0,0,0.001)',
             }}>
             <MaterialGlyph material={mat} color={m.color} />
             {isSel && tool === 'move' && (
               <>
-                {/* Resize handle */}
-                <div onMouseDown={startResize(m.id)} onTouchStart={startResize(m.id)}
-                  style={{ position: 'absolute', right: -8, bottom: -8, width: 16, height: 16,
-                    background: '#F5B301', borderRadius: '50%', border: '2px solid #fff',
-                    cursor: 'nwse-resize' }} />
+                {/* Resize handles — 4 esquinas */}
+                {[
+                  { corner: 'nw', style: { left: -8, top: -8, cursor: 'nwse-resize' } },
+                  { corner: 'ne', style: { right: -8, top: -8, cursor: 'nesw-resize' } },
+                  { corner: 'sw', style: { left: -8, bottom: -8, cursor: 'nesw-resize' } },
+                  { corner: 'se', style: { right: -8, bottom: -8, cursor: 'nwse-resize' } },
+                ].map(h => (
+                  <div key={h.corner}
+                    onMouseDown={startResize(m.id, h.corner)}
+                    onTouchStart={startResize(m.id, h.corner)}
+                    style={{ position: 'absolute', width: 16, height: 16,
+                      background: '#F5B301', borderRadius: '50%', border: '2px solid #fff',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                      ...h.style }} />
+                ))}
                 {/* Rotate handle */}
                 <div onMouseDown={startRotate(m.id)} onTouchStart={startRotate(m.id)}
-                  style={{ position: 'absolute', left: '50%', top: -18, width: 14, height: 14,
+                  style={{ position: 'absolute', left: '50%', top: -22, width: 14, height: 14,
                     marginLeft: -7, background: '#2563EB', borderRadius: '50%', border: '2px solid #fff',
-                    cursor: 'grab', fontSize: 8, color: '#fff', textAlign: 'center', lineHeight: '10px' }}>↻</div>
+                    cursor: 'grab', fontSize: 8, color: '#fff', textAlign: 'center', lineHeight: '10px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>↻</div>
               </>
             )}
           </div>
@@ -863,11 +999,11 @@ function Pitch({ mode, items, setItems, team, fullscreen, tool, arrowType, drawi
       {/* Players */}
       {showHome && players.filter(p => p.team === 'h').map(p => (
         <PlayerToken key={p.id} pkey={p.id} x={p.x} y={p.y} n={p.num}
-          color={TZ.primary} onDown={onDown(p.id)} dragging={drag === p.id} />
+          color={TZ.primary} onDown={onDown(p.id)} dragging={drag?.id === p.id} />
       ))}
       {showAway && players.filter(p => p.team === 'a').map(p => (
         <PlayerToken key={p.id} pkey={p.id} x={p.x} y={p.y} n={p.num}
-          color="#F5B301" textColor={TZ.primaryDark} onDown={onDown(p.id)} dragging={drag === p.id} />
+          color="#F5B301" textColor={TZ.primaryDark} onDown={onDown(p.id)} dragging={drag?.id === p.id} />
       ))}
 
       {/* Contextual mini menu for selected item */}
@@ -875,10 +1011,22 @@ function Pitch({ mode, items, setItems, team, fullscreen, tool, arrowType, drawi
         const sel = items.find(i => i.id === selectedId);
         if (!sel) return null;
         const isMat = sel.kind === 'material';
+        const isArrow = sel.kind === 'arrow';
         const mat = isMat ? window.MATERIAL_CATALOG.find(m => m.id === sel.materialId) : null;
+
+        // Calcular posición del menú:
+        // - Materiales / jugadores: usan sel.x, sel.y
+        // - Flechas: usan el primer punto del path
+        let menuX = sel.x, menuY = sel.y;
+        if (isArrow && sel.path && sel.path.length > 0) {
+          const mid = sel.path[Math.floor(sel.path.length / 2)];
+          menuX = mid.x;
+          menuY = mid.y;
+        }
+
         return (
           <div style={{
-            position: 'absolute', left: `${sel.x}%`, top: `${sel.y}%`,
+            position: 'absolute', left: `${menuX}%`, top: `${menuY}%`,
             transform: `translate(-50%, calc(-100% - 20px))`,
             zIndex: 40, background: 'rgba(11,18,32,0.95)', color: '#fff',
             borderRadius: 10, padding: 6, display: 'flex', gap: 3, alignItems: 'center',
@@ -894,11 +1042,13 @@ function Pitch({ mode, items, setItems, team, fullscreen, tool, arrowType, drawi
                 ))}
               </div>
             )}
-            <button onClick={() => duplicateItem(sel.id)} style={ctxBtn} title="Duplicar">⧉</button>
+            {!isArrow && (
+              <button onClick={() => duplicateItem(sel.id)} style={ctxBtn} title="Duplicar">⧉</button>
+            )}
             {isMat && (
               <button onClick={() => updateItem(sel.id, { rotation: ((sel.rotation || 0) + 45) % 360 })} style={ctxBtn} title="Rotar 45°">↻</button>
             )}
-            <button onClick={() => deleteItem(sel.id)} style={{ ...ctxBtn, color: '#FCA5A5' }} title="Eliminar">🗑</button>
+            <button onClick={() => deleteItem(sel.id)} style={{ ...ctxBtn, color: '#FCA5A5' }} title="Eliminar">🗑 Eliminar</button>
           </div>
         );
       })()}
@@ -969,6 +1119,253 @@ function PitchCrest() {
   return (
     <img src="assets/pachuca-crest.png" alt="Pachuca"
       style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+  );
+}
+
+// ── Menu button (top toolbar, opens dropdown) ───────────────
+function MenuBtn({ icon, label, active, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: '8px 12px', borderRadius: 8, border: 0, cursor: 'pointer',
+      background: active ? '#F5B301' : 'rgba(255,255,255,0.05)',
+      color: active ? TZ.primaryDark : '#fff',
+      display: 'flex', alignItems: 'center', gap: 6,
+      fontSize: 12, fontWeight: 700, transition: 'all 0.15s',
+    }}>
+      <span style={{ fontSize: 15 }}>{icon}</span>
+      <span>{label}</span>
+      <span style={{ fontSize: 9, opacity: 0.6, marginLeft: 2 }}>{active ? '▲' : '▼'}</span>
+    </button>
+  );
+}
+
+// ── Dropdown panel (overlays pitch from the top) ────────────
+function DropdownPanel({ panel, onClose, mode, setMode, formation, setFormation, formationKeys,
+  addMaterial, arrowType, setArrowType, tool, setTool, items, setItems, clearAll }) {
+
+  const titles = {
+    formation: '⚙️ Modalidad y Formación',
+    players:   '👥 Jugadores',
+    materials: '🧡 Materiales',
+    arrows:    '↗️ Flechas',
+    templates: '💾 Plantillas guardadas',
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{
+        position: 'absolute', inset: 0, zIndex: 20,
+        background: 'rgba(0,0,0,0.4)',
+        borderRadius: 16,
+      }} />
+
+      {/* Panel — desliza desde arriba */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, zIndex: 25,
+        background: 'rgba(11,18,32,0.97)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderRadius: '14px 14px 0 0',
+        border: '1px solid rgba(245,179,1,0.25)',
+        borderBottom: '2px solid #F5B301',
+        maxHeight: '75%',
+        overflowY: 'auto',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+        animation: 'tz-dropdown-slide 0.2s ease-out',
+      }}>
+        {/* Header with close */}
+        <div style={{
+          position: 'sticky', top: 0, zIndex: 5,
+          padding: '12px 16px',
+          background: 'rgba(11,18,32,0.97)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 800, color: '#F5B301', letterSpacing: 0.3 }}>
+            {titles[panel]}
+          </span>
+          <button onClick={onClose} style={{
+            width: 28, height: 28, borderRadius: 8, border: 0, cursor: 'pointer',
+            background: 'rgba(255,255,255,0.1)', color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 14, fontWeight: 700,
+          }}>✕</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: 16, color: '#fff' }}>
+          {panel === 'formation' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: '#F5B301', marginBottom: 8, textTransform: 'uppercase' }}>
+                  Modalidad
+                </div>
+                <div style={{ display: 'flex', gap: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 10, padding: 4 }}>
+                  {['11v11', '8v8'].map(m => (
+                    <button key={m} onClick={() => setMode(m)} style={{
+                      flex: 1, padding: '14px', border: 0, borderRadius: 8,
+                      background: mode === m ? '#F5B301' : 'transparent',
+                      color: mode === m ? TZ.primaryDark : 'rgba(255,255,255,0.7)',
+                      fontSize: 18, fontWeight: 800, cursor: 'pointer', letterSpacing: 0.5,
+                      fontFamily: '"Barlow Condensed", sans-serif',
+                    }}>FÚTBOL {m}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: '#F5B301', marginBottom: 8, textTransform: 'uppercase' }}>
+                  Formación
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                  {formationKeys.map(f => (
+                    <button key={f} onClick={() => setFormation(f)} style={{
+                      padding: '14px 8px', border: 0, borderRadius: 8,
+                      background: formation === f ? '#F5B301' : 'rgba(255,255,255,0.06)',
+                      color: formation === f ? TZ.primaryDark : '#fff',
+                      fontSize: 15, fontWeight: 800, cursor: 'pointer', letterSpacing: 0.5,
+                      fontFamily: '"Barlow Condensed", sans-serif',
+                    }}>{f}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {panel === 'players' && (
+            <div style={{
+              padding: 14, background: 'rgba(255,255,255,0.05)', borderRadius: 10,
+              fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.6,
+            }}>
+              💡 Los jugadores se posicionan según la <strong style={{ color: '#F5B301' }}>formación</strong> elegida.
+              Arrastra las fichas directamente en la cancha para reposicionarlas.
+              <br /><br />
+              Actualmente: <strong style={{ color: '#F5B301' }}>{mode} · {formation}</strong>
+            </div>
+          )}
+
+          {panel === 'materials' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {window.MATERIAL_CATALOG && window.MATERIAL_CATALOG.map(m => (
+                  <button key={m.id} onClick={() => { addMaterial(m.id); onClose(); }} style={{
+                    padding: '12px 8px', borderRadius: 10, border: 0, cursor: 'pointer',
+                    background: 'rgba(255,255,255,0.06)', color: '#fff',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(245,179,1,0.15)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}>
+                    <MaterialThumb material={m} size={38} dark />
+                    <span style={{ fontSize: 10, fontWeight: 600, textAlign: 'center', lineHeight: 1.2 }}>
+                      {m.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Botón para eliminar todos los materiales de la cancha */}
+              {items.filter(i => i.kind === 'material').length > 0 && (
+                <button onClick={() => { clearAll('material'); onClose(); }} style={{
+                  padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
+                  background: 'rgba(220,38,38,0.15)', color: '#FCA5A5',
+                  border: '1.5px solid rgba(220,38,38,0.4)',
+                  fontSize: 13, fontWeight: 800, letterSpacing: 0.3,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  marginTop: 4,
+                }}>
+                  <span style={{ fontSize: 16 }}>🗑</span>
+                  Eliminar todos los materiales ({items.filter(i => i.kind === 'material').length})
+                </button>
+              )}
+            </div>
+          )}
+
+          {panel === 'arrows' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5 }}>
+                Elige el tipo de flecha, luego <strong style={{ color: '#F5B301' }}>dibuja directamente sobre la cancha</strong>.
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {ARROW_TYPES.map(a => {
+                  const active = arrowType === a.id && tool === 'arrow';
+                  return (
+                    <button key={a.id} onClick={() => { setArrowType(a.id); setTool('arrow'); onClose(); }} style={{
+                      padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
+                      background: active ? 'rgba(245,179,1,0.2)' : 'rgba(255,255,255,0.06)',
+                      border: active ? '2px solid #F5B301' : '2px solid transparent',
+                      color: '#fff', textAlign: 'left',
+                      display: 'flex', alignItems: 'center', gap: 14,
+                    }}>
+                      <div style={{ width: 50, height: 24, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                        <ArrowPreview type={a.id} />
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 700, flex: 1 }}>{a.label}</span>
+                      {active && <span style={{ fontSize: 11, color: '#F5B301', fontWeight: 800 }}>ACTIVA</span>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Botón para eliminar todas las flechas de la cancha */}
+              {items.filter(i => i.kind === 'arrow').length > 0 && (
+                <button onClick={() => { clearAll('arrow'); onClose(); }} style={{
+                  padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
+                  background: 'rgba(220,38,38,0.15)', color: '#FCA5A5',
+                  border: '1.5px solid rgba(220,38,38,0.4)',
+                  fontSize: 13, fontWeight: 800, letterSpacing: 0.3,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  marginTop: 4,
+                }}>
+                  <span style={{ fontSize: 16 }}>🗑</span>
+                  Eliminar todas las flechas ({items.filter(i => i.kind === 'arrow').length})
+                </button>
+              )}
+            </div>
+          )}
+
+          {panel === 'templates' && (
+            <TemplatesPanel items={items} setItems={setItems} mode={mode} formation={formation} />
+          )}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes tz-dropdown-slide {
+          from { opacity: 0; transform: translateY(-20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </>
+  );
+}
+
+// ── Compact toolbar buttons (fullscreen) ────────────────────
+function ToolBtn({ icon, label, active, onClick }) {
+  return (
+    <button onClick={onClick} title={label} style={{
+      padding: '8px 12px', borderRadius: 8, border: 0, cursor: 'pointer',
+      background: active ? '#F5B301' : 'rgba(255,255,255,0.05)',
+      color: active ? TZ.primaryDark : '#fff',
+      display: 'flex', alignItems: 'center', gap: 6,
+      fontSize: 12, fontWeight: 700, transition: 'all 0.15s',
+    }}>
+      <span style={{ fontSize: 16 }}>{icon}</span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function TeamBtn({ label, active, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: '8px 12px', borderRadius: 8, border: 0, cursor: 'pointer',
+      background: active ? 'rgba(29,61,138,0.5)' : 'rgba(255,255,255,0.05)',
+      color: active ? '#fff' : 'rgba(255,255,255,0.6)',
+      fontSize: 11, fontWeight: 700, letterSpacing: 0.3,
+      transition: 'all 0.15s',
+    }}>{label}</button>
   );
 }
 

@@ -7,6 +7,42 @@
 
 ---
 
+## 🆕 Actualización — Features nuevas incluidas
+
+Esta versión del handoff incluye módulos añadidos posteriormente:
+
+### 📅 Sistema de eventos completo
+- `EventManager.jsx` — CRUD + diff tracking + broadcasts
+- `EventDetail.jsx` — vista de detalle con botones editar / cancelar / iniciar partido
+- Historial de cambios con diff visual (fecha vieja → fecha nueva)
+- Cancelación con motivo (lluvia, incomparecencia, etc.)
+- Push automático triple cuando se edita/cancela: notificación + mensaje al chat + banner "MODIFICADO"/"CANCELADO" en calendario
+
+### 🏟️ MatchLive — Partido en vivo
+- `MatchLive.jsx` — panel del coach durante el partido
+- Cronómetro con duración configurable por partido (15-45 min por tiempo)
+- Marcador estilo estadio con logo TuzosJrz
+- Registro rápido de goles / amarillas / rojas / faltas (2 taps máximo)
+- Botón "+1 GOL RIVAL" simplificado
+- Push a padres por cada gol (a favor y en contra) + resumen final
+- **Tarjeta compartible estilo estadio para redes sociales** con branding TuzosJrz
+- Estadísticas acumuladas por jugador (goles, tarjetas, minutos)
+
+### 💬 Chat mejorado
+- Reacciones a mensajes (👍❤️🎉🙏🔥)
+- Canal "Anuncios del club" con formato especial
+- Push automático a todos cuando admin publica anuncio
+
+### 🔔 Notificaciones live
+- `PushToast` — banner estilo iOS que baja desde arriba
+- Sistema de eventos globales: `tz-push`, `tz-announce-broadcast`, `tz-chat-broadcast`
+
+**Ver secciones específicas más abajo para detalles de implementación.**
+
+---
+
+---
+
 ## 🎯 Overview
 
 **TuzosJrz** es la app oficial de la **Filial oficial del Club Pachuca** para administrar una escuela de fútbol formativo con múltiples categorías (Sub-8 a Sub-16). La app conecta a **3 tipos de usuarios**:

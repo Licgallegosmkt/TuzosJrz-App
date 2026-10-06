@@ -30,14 +30,49 @@ function buildEvents() {
 
 const ALL_EVENTS = buildEvents();
 
-function CalendarScreen({ role, category, back, onCreate }) {
+function CalendarScreen({ role, category, back, onCreate, onOpenEvent }) {
   const [view, setView] = React.useState('month'); // month | week
   const [currentMonth, setCurrentMonth] = React.useState(8); // September (0-indexed)
   const [selectedDay, setSelectedDay] = React.useState(null);
+  const [tick, setTick] = React.useState(0);
+  React.useEffect(() => {
+    const h = () => setTick(t => t + 1);
+    window.addEventListener('tz-events-change', h);
+    return () => window.removeEventListener('tz-events-change', h);
+  }, []);
   const year = 2026;
 
+  // Convertir eventos creados por usuario al formato del calendario
+  const userEvents = React.useMemo(() => {
+    if (!window.getAllEvents) return [];
+    return window.getAllEvents().map(e => {
+      // Extract day/month from date field
+      let day, month = 8;
+      if (e.date) {
+        const d = new Date(e.date + 'T00:00');
+        day = d.getDate(); month = d.getMonth();
+      } else if (e.dateTime) {
+        const d = new Date(e.dateTime);
+        day = d.getDate(); month = d.getMonth();
+      } else {
+        return null;
+      }
+      return {
+        id: e.id,
+        day, month,
+        kind: e.type === 'match' || e.type === 'friendly' ? 'match' : e.type === 'meeting' ? 'tournament' : 'training',
+        title: e.type === 'match' || e.type === 'friendly' ? `vs ${e.rival}` : (e.title || 'Evento'),
+        category: e.category || 'Todas',
+        time: e.matchTime || (e.dateTime ? e.dateTime.split('T')[1]?.slice(0, 5) : ''),
+        place: e.location?.name || '',
+        status: e.status,
+        _userEvent: true,
+      };
+    }).filter(Boolean);
+  }, [tick]);
+
   // Filter by role
-  const events = ALL_EVENTS.filter(e => {
+  const events = [...userEvents, ...ALL_EVENTS].filter(e => {
     if (role === 'coach' && category && e.category !== category && e.category !== 'Todas') return false;
     if (role === 'parent') {
       // Simulate parent has kids in Sub-12
@@ -132,6 +167,7 @@ function CalendarScreen({ role, category, back, onCreate }) {
           role={role}
           onClose={() => setSelectedDay(null)}
           onCreate={onCreate}
+          onOpenEvent={onOpenEvent}
         />
       )}
     </div>
@@ -241,20 +277,27 @@ function WeekView({ events }) {
 }
 
 function MiniEventRow({ e }) {
-  const bg = e.kind === 'match' ? '#F5B301' : e.kind === 'tournament' ? '#7C3AED' : TZ.primary;
+  const isCancelled = e.status === 'cancelled';
+  const isModified = e.status === 'modified';
+  const bg = isCancelled ? '#9CA3AF' : e.kind === 'match' ? '#F5B301' : e.kind === 'tournament' ? '#7C3AED' : TZ.primary;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: isCancelled ? 0.55 : 1 }}>
       <div style={{ width: 3, height: 32, background: bg, borderRadius: 2 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: TZ.ink,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: TZ.ink,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            textDecoration: isCancelled ? 'line-through' : 'none' }}>{e.title}</span>
+          {isCancelled && <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.5, padding: '1px 5px', borderRadius: 4, background: TZ.err, color: '#fff' }}>CANCELADO</span>}
+          {isModified && !isCancelled && <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.5, padding: '1px 5px', borderRadius: 4, background: TZ.warn, color: '#fff' }}>MOD.</span>}
+        </div>
         <div style={{ fontSize: 10, color: TZ.muted, marginTop: 1 }}>{e.time} · {e.category} · {e.place}</div>
       </div>
     </div>
   );
 }
 
-function DaySheet({ day, month, year, events, role, onClose, onCreate }) {
+function DaySheet({ day, month, year, events, role, onClose, onCreate, onOpenEvent }) {
   const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   return (
     <div style={{
@@ -290,33 +333,47 @@ function DaySheet({ day, month, year, events, role, onClose, onCreate }) {
             <div style={{ padding: 30, textAlign: 'center', color: TZ.muted, fontSize: 13, fontStyle: 'italic' }}>
               No hay actividades este día
             </div>
-          ) : events.map(e => <FullEventCard key={e.id} e={e} role={role} />)}
+          ) : events.map(e => <FullEventCard key={e.id} e={e} role={role} onOpenEvent={onOpenEvent} onCloseSheet={onClose} />)}
         </div>
       </div>
     </div>
   );
 }
 
-function FullEventCard({ e, role }) {
-  const bg = e.kind === 'match' ? '#F5B301' : e.kind === 'tournament' ? '#7C3AED' : TZ.primary;
+function FullEventCard({ e, role, onOpenEvent, onCloseSheet }) {
+  const isCancelled = e.status === 'cancelled';
+  const isModified = e.status === 'modified';
+  const bg = isCancelled ? '#9CA3AF' : e.kind === 'match' ? '#F5B301' : e.kind === 'tournament' ? '#7C3AED' : TZ.primary;
   const label = e.kind === 'match' ? 'PARTIDO' : e.kind === 'tournament' ? 'TORNEO' : 'ENTRENO';
+  const isClickable = e._userEvent && onOpenEvent;
   return (
-    <div style={{ background: '#fff', border: '1px solid ' + TZ.line, borderRadius: 14, overflow: 'hidden' }}>
+    <div onClick={() => {
+      if (isClickable) { onCloseSheet && onCloseSheet(); onOpenEvent(e.id); }
+    }} style={{
+      background: '#fff', border: '1px solid ' + TZ.line, borderRadius: 14, overflow: 'hidden',
+      opacity: isCancelled ? 0.7 : 1, cursor: isClickable ? 'pointer' : 'default',
+    }}>
       <div style={{ display: 'flex', gap: 12, padding: 14 }}>
         <div style={{ width: 4, background: bg, borderRadius: 2, flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <span style={{
-              fontSize: 9, fontWeight: 800, letterSpacing: 0.6, padding: '2px 8px', borderRadius: 999,
-              background: bg + '22', color: bg,
-            }}>{label}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <span style={{
+                fontSize: 9, fontWeight: 800, letterSpacing: 0.6, padding: '2px 8px', borderRadius: 999,
+                background: bg + '22', color: bg,
+              }}>{label}</span>
+              {isCancelled && <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.5, padding: '2px 6px', borderRadius: 4, background: TZ.err, color: '#fff' }}>❌ CANCELADO</span>}
+              {isModified && !isCancelled && <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.5, padding: '2px 6px', borderRadius: 4, background: TZ.warn, color: '#fff' }}>📝 MODIFICADO</span>}
+            </div>
             <span style={{ fontSize: 11, color: TZ.muted, fontWeight: 600 }}>{e.category}</span>
           </div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: TZ.ink, marginTop: 6 }}>{e.title}</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: TZ.ink, marginTop: 6,
+            textDecoration: isCancelled ? 'line-through' : 'none' }}>{e.title}</div>
           <div style={{ fontSize: 12, color: TZ.inkSoft, marginTop: 4 }}>
             <strong style={{ color: TZ.ink }}>{e.time}</strong> · {e.place}
           </div>
         </div>
+        {isClickable && <Icon name="chevron" size={16} color={TZ.muted} />}
       </div>
       {role === 'parent' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid ' + TZ.line }}>

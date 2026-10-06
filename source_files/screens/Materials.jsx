@@ -11,17 +11,17 @@ const MATERIAL_COLOR_ORDER = ['red', 'yellow', 'blue', 'green', 'orange'];
 
 // Each material: { id, label, sizeDefault (w,h in pitch %), hasColor, aspectRatio, defaultColor }
 const MATERIAL_CATALOG = [
-  { id: 'hoop',      label: 'Aro',              w: 4,   h: 4,   hasColor: true,  defaultColor: 'red',    icon: 'HoopIcon' },
-  { id: 'hurdle-lo', label: 'Valla baja',       w: 4,   h: 2.5, hasColor: false, icon: 'HurdleLoIcon' },
-  { id: 'hurdle-hi', label: 'Valla alta',       w: 4,   h: 3.5, hasColor: false, icon: 'HurdleHiIcon' },
-  { id: 'ladder',    label: 'Escalera agilidad',w: 3,   h: 15,  hasColor: false, icon: 'LadderIcon' },
-  { id: 'medball',   label: 'Pelota medicinal', w: 3.5, h: 3.5, hasColor: false, icon: 'MedBallIcon' },
-  { id: 'ball',      label: 'Balón',            w: 3,   h: 3,   hasColor: false, icon: 'SoccerBallIcon' },
-  { id: 'goal',      label: 'Portería pequeña', w: 8,   h: 3,   hasColor: false, icon: 'MiniGoalIcon' },
-  { id: 'vest',      label: 'Chaleco',          w: 3.5, h: 4,   hasColor: true,  defaultColor: 'yellow', icon: 'VestIcon' },
-  { id: 'disc',      label: 'Plato',            w: 2.5, h: 2.5, hasColor: true,  defaultColor: 'orange', icon: 'DiscIcon' },
-  { id: 'zone-r',    label: 'Área (rectángulo)',w: 14,  h: 10,  hasColor: true,  defaultColor: 'yellow', icon: 'ZoneRectIcon', shape: 'rect' },
-  { id: 'zone-c',    label: 'Área (círculo)',   w: 10,  h: 10,  hasColor: true,  defaultColor: 'yellow', icon: 'ZoneCircleIcon', shape: 'circle' },
+  { id: 'hoop',      label: 'Aro',              w: 8,   h: 8,   hasColor: true,  defaultColor: 'red',    icon: 'HoopIcon' },
+  { id: 'hurdle-lo', label: 'Valla baja',       w: 8,   h: 5,   hasColor: false, icon: 'HurdleLoIcon' },
+  { id: 'hurdle-hi', label: 'Valla alta',       w: 8,   h: 7,   hasColor: false, icon: 'HurdleHiIcon' },
+  { id: 'ladder',    label: 'Escalera agilidad',w: 6,   h: 22,  hasColor: false, icon: 'LadderIcon' },
+  { id: 'medball',   label: 'Pelota medicinal', w: 7,   h: 7,   hasColor: false, icon: 'MedBallIcon' },
+  { id: 'ball',      label: 'Balón',            w: 6,   h: 6,   hasColor: false, icon: 'SoccerBallIcon' },
+  { id: 'goal',      label: 'Portería pequeña', w: 14,  h: 6,   hasColor: false, icon: 'MiniGoalIcon' },
+  { id: 'vest',      label: 'Chaleco',          w: 7,   h: 8,   hasColor: true,  defaultColor: 'yellow', icon: 'VestIcon' },
+  { id: 'disc',      label: 'Plato',            w: 5,   h: 5,   hasColor: true,  defaultColor: 'orange', icon: 'DiscIcon' },
+  { id: 'zone-r',    label: 'Área (rectángulo)',w: 20,  h: 14,  hasColor: true,  defaultColor: 'yellow', icon: 'ZoneRectIcon', shape: 'rect' },
+  { id: 'zone-c',    label: 'Área (círculo)',   w: 14,  h: 14,  hasColor: true,  defaultColor: 'yellow', icon: 'ZoneCircleIcon', shape: 'circle' },
 ];
 
 // ── SVG icons (fit any container via viewBox) ─────────────
@@ -117,17 +117,21 @@ function DiscIcon({ color = '#EA580C', size = 24 }) {
     </svg>
   );
 }
-function ZoneRectIcon({ color = '#F5B301', size = 24 }) {
+function ZoneRectIcon({ color = '#F5B301', size = 24, fill = true }) {
   return (
-    <svg width={size} height={size * 0.7} viewBox="0 0 40 28">
-      <rect x="3" y="3" width="34" height="22" fill={color + '33'} stroke={color} strokeWidth="2" strokeDasharray="4 3" rx="2" />
+    <svg width={size} height={size * 0.7} viewBox="0 0 40 28" preserveAspectRatio="none"
+      style={{ width: '100%', height: '100%' }}>
+      <rect x="3" y="3" width="34" height="22" fill={fill ? color + '55' : 'none'}
+        stroke={color} strokeWidth="2" strokeDasharray="4 3" rx="2" />
     </svg>
   );
 }
-function ZoneCircleIcon({ color = '#F5B301', size = 24 }) {
+function ZoneCircleIcon({ color = '#F5B301', size = 24, fill = true }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40">
-      <circle cx="20" cy="20" r="15" fill={color + '33'} stroke={color} strokeWidth="2" strokeDasharray="4 3" />
+    <svg width={size} height={size} viewBox="0 0 40 40" preserveAspectRatio="none"
+      style={{ width: '100%', height: '100%' }}>
+      <circle cx="20" cy="20" r="17" fill={fill ? color + '55' : 'none'}
+        stroke={color} strokeWidth="2" strokeDasharray="4 3" />
     </svg>
   );
 }

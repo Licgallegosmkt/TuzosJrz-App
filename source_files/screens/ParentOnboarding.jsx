@@ -1,17 +1,17 @@
 // TuzosJrz — Parent onboarding flow (invite → register → verify → approved)
 
 function ParentOnboarding({ state, setState, onEnter }) {
-  // state: 'invite' | 'register' | 'review' | 'approved'
-  // 'approved' is handled by App switching to ParentHome; here we just render the pre-approved screens.
+  // state: 'invite' | 'register' | 'consents' | 'review' | 'approved'
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#F4F5F8' }}>
-      {/* Stepper preview bar — only visible in prototype for reviewers */}
+      {/* Stepper preview bar */}
       <StepperBar state={state} setState={setState} />
 
       <div style={{ flex: 1, overflow: 'auto' }}>
         {state === 'invite' && <InviteLanding onContinue={() => setState('register')} />}
-        {state === 'register' && <RegisterForm onSubmit={() => setState('review')} back={() => setState('invite')} />}
+        {state === 'register' && <RegisterForm onSubmit={() => setState('consents')} back={() => setState('invite')} />}
+        {state === 'consents' && <ConsentsScreen onSubmit={() => setState('review')} back={() => setState('register')} />}
         {state === 'review' && <ReviewPending onSimulateApprove={() => { setState('approved'); onEnter && onEnter(); }} />}
       </div>
     </div>
@@ -23,8 +23,9 @@ function StepperBar({ state, setState }) {
   const steps = [
     { id: 'invite',   n: 1, label: 'Invitación' },
     { id: 'register', n: 2, label: 'Registro' },
-    { id: 'review',   n: 3, label: 'En revisión' },
-    { id: 'approved', n: 4, label: 'Aprobado' },
+    { id: 'consents', n: 3, label: 'Términos' },
+    { id: 'review',   n: 4, label: 'Revisión' },
+    { id: 'approved', n: 5, label: 'Listo' },
   ];
   const activeIdx = steps.findIndex(s => s.id === state);
   return (

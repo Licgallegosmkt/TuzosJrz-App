@@ -179,4 +179,67 @@ function PushMock({ role }) {
   );
 }
 
-Object.assign(window, { NotificationsCenter, PushMock });
+// ── LIVE PUSH TOAST ─────────────────────────────────────────
+// Escucha eventos `tz-announce-broadcast` (y otros push events) y muestra
+// una notificación estilo iOS que baja desde arriba, se queda 5s, y se va
+function PushToast() {
+  const [toast, setToast] = React.useState(null);
+
+  React.useEffect(() => {
+    const handler = (e) => {
+      const detail = e.detail || {};
+      setToast({
+        title: detail.title || '📢 Nuevo anuncio',
+        body: detail.body || '',
+        at: 'ahora',
+      });
+      setTimeout(() => setToast(null), 5000);
+    };
+    window.addEventListener('tz-announce-broadcast', handler);
+    window.addEventListener('tz-push', handler);
+    return () => {
+      window.removeEventListener('tz-announce-broadcast', handler);
+      window.removeEventListener('tz-push', handler);
+    };
+  }, []);
+
+  if (!toast) return null;
+  return (
+    <div style={{
+      position: 'absolute', top: 8, left: 10, right: 10, zIndex: 500,
+      background: 'rgba(255,255,255,0.92)',
+      backdropFilter: 'blur(24px) saturate(180%)',
+      WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+      borderRadius: 18, padding: '12px 14px',
+      boxShadow: '0 10px 28px rgba(0,0,0,0.22), 0 0 0 0.5px rgba(0,0,0,0.06)',
+      display: 'flex', gap: 12, alignItems: 'center',
+      animation: 'tz-push-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+      cursor: 'pointer',
+    }} onClick={() => setToast(null)}>
+      <img src="assets/tuzosjrz-logo.png" alt="TJ"
+        style={{ width: 40, height: 40, borderRadius: 9, objectFit: 'contain', background: '#fff', flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#000', letterSpacing: 0.3 }}>TUZOSJRZ</span>
+          <span style={{ fontSize: 10, color: '#666', fontWeight: 600 }}>{toast.at}</span>
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#000', marginTop: 2 }}>{toast.title}</div>
+        {toast.body && (
+          <div style={{ fontSize: 12, color: '#333', marginTop: 1, lineHeight: 1.3,
+            overflow: 'hidden', textOverflow: 'ellipsis',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+            {toast.body}
+          </div>
+        )}
+      </div>
+      <style>{`
+        @keyframes tz-push-in {
+          from { opacity: 0; transform: translateY(-30px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+Object.assign(window, { NotificationsCenter, PushMock, PushToast });

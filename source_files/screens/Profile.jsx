@@ -35,11 +35,14 @@ function ProfileHero({ name, role, photoEntity, photoKind, canEditPhoto, subtitl
 }
 
 // Section card with title
-function SectionCard({ title, children }) {
+function SectionCard({ title, subtitle, children }) {
   return (
     <div style={{ marginTop: 22 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: TZ.muted, letterSpacing: 1,
-        textTransform: 'uppercase', margin: '0 4px 8px' }}>{title}</div>
+      <div style={{ margin: '0 4px 8px' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: TZ.muted, letterSpacing: 1,
+          textTransform: 'uppercase' }}>{title}</div>
+        {subtitle && <div style={{ fontSize: 11, color: TZ.muted, marginTop: 3, letterSpacing: 0.1 }}>{subtitle}</div>}
+      </div>
       <div style={{
         background: '#fff', borderRadius: 14, overflow: 'hidden',
         border: '1px solid rgba(15,23,42,0.04)',
@@ -630,6 +633,8 @@ function ParentProfile() {
           ))}
         </SectionCard>
 
+        <CalendarSyncSection userKey={userKey} />
+
         <CommonSections userKey={userKey} roleLabel="Padre" />
       </div>
 
@@ -647,6 +652,266 @@ function ParentProfile() {
           <button onClick={() => setPayOpen(false)} style={sheetPrimaryBtn}>Guardar tarjeta</button>
         </div>
       </BottomSheet>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// CALENDAR SYNC — suscripción webcal a calendario del club
+// ═══════════════════════════════════════════════════════════
+function CalendarSyncSection({ userKey }) {
+  const [enabled, setEnabled] = usePersistedState(`tz.profile.${userKey}.calSync`, false);
+  const [copied, setCopied] = React.useState(false);
+  const [instructOpen, setInstructOpen] = React.useState(null); // 'google' | 'apple' | 'outlook'
+
+  // URL simulada (en producción se genera con token único del padre)
+  const feedUrl = `webcal://tuzosjrz.com/api/calendar/${userKey}.ics`;
+  const httpsUrl = feedUrl.replace('webcal://', 'https://');
+
+  const copyUrl = () => {
+    try { navigator.clipboard.writeText(httpsUrl); } catch {}
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  return (
+    <SectionCard title="Sincronizar con mi calendario"
+      subtitle={enabled ? '✓ Activo · los eventos aparecen automáticamente' : 'Ve los partidos y entrenamientos en tu calendario personal'}>
+
+      {/* Toggle principal */}
+      <div style={{ padding: '14px', display: 'flex', alignItems: 'center', gap: 12,
+        borderBottom: enabled ? '1px solid ' + TZ.line : 0 }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+          background: enabled ? TZ.ok + '15' : 'rgba(29,61,138,0.08)',
+          color: enabled ? TZ.ok : TZ.primary,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+        }}>📅</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: TZ.ink }}>Sincronización activa</div>
+          <div style={{ fontSize: 11, color: TZ.muted, marginTop: 2, lineHeight: 1.4 }}>
+            Los cambios en la app se reflejan solos en tu calendario
+          </div>
+        </div>
+        {/* Toggle switch */}
+        <button onClick={() => setEnabled(!enabled)} style={{
+          width: 48, height: 28, borderRadius: 999, border: 0, cursor: 'pointer',
+          background: enabled ? TZ.ok : '#CBD5E1', padding: 3,
+          transition: 'background 0.2s', position: 'relative',
+        }}>
+          <div style={{
+            width: 22, height: 22, borderRadius: '50%', background: '#fff',
+            transform: `translateX(${enabled ? 20 : 0}px)`,
+            transition: 'transform 0.2s',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+          }} />
+        </button>
+      </div>
+
+      {enabled && (
+        <>
+          {/* URL del feed */}
+          <div style={{ padding: '14px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: TZ.muted, letterSpacing: 0.5,
+              textTransform: 'uppercase', marginBottom: 6 }}>
+              Tu URL de suscripción
+            </div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 12px', background: '#F4F5F8', borderRadius: 10,
+              border: '1px solid ' + TZ.line,
+            }}>
+              <span style={{ flex: 1, fontSize: 11, fontFamily: 'monospace',
+                color: TZ.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {feedUrl}
+              </span>
+              <button onClick={copyUrl} style={{
+                padding: '6px 12px', borderRadius: 6, border: 0, cursor: 'pointer',
+                background: copied ? TZ.ok : TZ.primary, color: '#fff',
+                fontSize: 11, fontWeight: 700, letterSpacing: 0.3,
+                whiteSpace: 'nowrap',
+              }}>
+                {copied ? '✓ Copiado' : 'Copiar'}
+              </button>
+            </div>
+            <div style={{ fontSize: 10, color: TZ.muted, marginTop: 6, lineHeight: 1.5 }}>
+              🔒 URL única y privada — solo tú deberías tenerla
+            </div>
+          </div>
+
+          {/* Instrucciones por plataforma */}
+          <div style={{ padding: '0 14px 14px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: TZ.muted, letterSpacing: 0.5,
+              textTransform: 'uppercase', marginBottom: 8 }}>
+              Cómo suscribirte
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {[
+                { id: 'google', icon: '🅶', name: 'Google Calendar', color: '#4285F4' },
+                { id: 'apple',  icon: '🍎', name: 'Apple Calendar',  color: '#0F172A' },
+                { id: 'outlook',icon: '📮', name: 'Outlook',          color: '#0078D4' },
+              ].map(p => (
+                <button key={p.id} onClick={() => setInstructOpen(p.id)} style={{
+                  padding: '10px 12px', borderRadius: 10,
+                  border: '1px solid ' + TZ.line, background: '#fff',
+                  cursor: 'pointer', textAlign: 'left',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                    background: p.color + '15', color: p.color,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 16, fontWeight: 800,
+                  }}>{p.icon}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: TZ.ink }}>{p.name}</div>
+                    <div style={{ fontSize: 10, color: TZ.muted, marginTop: 1 }}>Ver instrucciones paso a paso</div>
+                  </div>
+                  <span style={{ color: TZ.muted, fontSize: 16 }}>›</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Instructions sheet */}
+      {instructOpen && (
+        <CalendarInstructionsSheet
+          platform={instructOpen}
+          url={httpsUrl}
+          onClose={() => setInstructOpen(null)}
+        />
+      )}
+    </SectionCard>
+  );
+}
+
+function CalendarInstructionsSheet({ platform, url, onClose }) {
+  const INSTR = {
+    google: {
+      icon: '🅶',
+      name: 'Google Calendar',
+      color: '#4285F4',
+      steps: [
+        'Abre Google Calendar en tu computadora (calendar.google.com)',
+        'En el panel izquierdo, junto a "Otros calendarios", toca el signo +',
+        'Elige "Desde URL"',
+        'Pega la URL de arriba y toca "Agregar calendario"',
+        'Listo — los eventos de TuzosJrz aparecerán y se actualizarán solos',
+      ],
+      tip: 'Los cambios pueden tardar hasta 8 horas en reflejarse en Google Calendar (limitación de Google).',
+    },
+    apple: {
+      icon: '🍎',
+      name: 'Apple Calendar (iPhone)',
+      color: '#0F172A',
+      steps: [
+        'En tu iPhone abre Ajustes → Calendario → Cuentas',
+        'Toca "Añadir cuenta" → "Otra"',
+        'Elige "Añadir calendario suscrito"',
+        'Pega la URL que copiaste y toca "Siguiente"',
+        'Confirma con "Guardar" — verás los eventos en la app Calendario',
+      ],
+      tip: 'Apple Calendar sincroniza automáticamente cada 15 minutos.',
+    },
+    outlook: {
+      icon: '📮',
+      name: 'Outlook',
+      color: '#0078D4',
+      steps: [
+        'Abre Outlook en la web (outlook.live.com)',
+        'Ve a la sección Calendario',
+        'Haz clic en "Añadir calendario" → "Suscribirse desde web"',
+        'Pega la URL de arriba y ponle un nombre (ej. "TuzosJrz")',
+        'Elige color y toca "Importar"',
+      ],
+      tip: 'Outlook sincroniza aproximadamente cada 3 horas.',
+    },
+  };
+
+  const p = INSTR[platform];
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'absolute', inset: 0, zIndex: 100,
+      background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'flex-end',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', background: '#fff',
+        borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        padding: '10px 20px 30px', maxHeight: '90%', overflow: 'auto',
+      }}>
+        <div style={{ width: 40, height: 4, background: '#D1D5DB', borderRadius: 999, margin: '4px auto 14px' }} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 10,
+            background: p.color + '15', color: p.color,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 20, fontWeight: 800,
+          }}>{p.icon}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: TZ.ink }}>Suscribirse en</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: p.color, marginTop: 1 }}>{p.name}</div>
+          </div>
+        </div>
+
+        {/* URL box */}
+        <div style={{
+          marginTop: 16, padding: '10px 12px',
+          background: '#F4F5F8', border: '1px solid ' + TZ.line, borderRadius: 10,
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ flex: 1, fontSize: 11, fontFamily: 'monospace', color: TZ.ink,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {url}
+          </span>
+          <button onClick={() => { try { navigator.clipboard.writeText(url); } catch {} }} style={{
+            padding: '4px 10px', borderRadius: 6, border: 0, cursor: 'pointer',
+            background: TZ.primary, color: '#fff', fontSize: 10, fontWeight: 800,
+          }}>Copiar</button>
+        </div>
+
+        {/* Steps */}
+        <div style={{ marginTop: 20 }}>
+          {p.steps.map((step, i) => (
+            <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                background: p.color, color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: 800,
+              }}>{i + 1}</div>
+              <div style={{ flex: 1, fontSize: 13, color: TZ.ink, lineHeight: 1.5, paddingTop: 4 }}>
+                {step}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tip */}
+        <div style={{
+          marginTop: 4, padding: '10px 12px',
+          background: '#FFFBEB', border: '1px solid #FDE68A',
+          borderRadius: 10, display: 'flex', gap: 8, alignItems: 'flex-start',
+        }}>
+          <span style={{ fontSize: 16 }}>💡</span>
+          <div style={{ flex: 1, fontSize: 12, color: '#78350F', lineHeight: 1.5 }}>
+            {p.tip}
+          </div>
+        </div>
+
+        <button onClick={onClose} style={{
+          marginTop: 18, width: '100%',
+          padding: '14px', borderRadius: 12,
+          background: TZ.primary, color: '#fff', border: 0,
+          fontSize: 14, fontWeight: 800, cursor: 'pointer',
+          boxShadow: '0 4px 12px rgba(29,61,138,0.3)',
+        }}>
+          Entendido
+        </button>
+      </div>
     </div>
   );
 }

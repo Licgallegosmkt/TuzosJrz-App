@@ -315,11 +315,12 @@ function CategoryField({ value, onChange, locked }) {
 }
 
 // ── CREATE TRAINING ─────────────────────────────────────────
-function CreateTraining({ back, onSave, role, coachCategory }) {
-  const [category, setCategory] = React.useState(coachCategory || 'Sub-12');
-  const [dateTime, setDateTime] = React.useState('2026-09-22T17:00');
-  const [location, setLocation] = React.useState(KNOWN_PLACES[0]);
+function CreateTraining({ back, onSave, role, coachCategory, editingEvent }) {
+  const [category, setCategory] = React.useState(editingEvent?.category || coachCategory || 'Sub-12');
+  const [dateTime, setDateTime] = React.useState(editingEvent?.dateTime || '2026-09-22T17:00');
+  const [location, setLocation] = React.useState(editingEvent?.location || KNOWN_PLACES[0]);
   const [notify, setNotify] = React.useState(true);
+  const isEdit = !!editingEvent;
 
   const canSave = category && dateTime;
 
@@ -341,7 +342,7 @@ function CreateTraining({ back, onSave, role, coachCategory }) {
             <Icon name="chevronL" size={18} color="#fff" />
           </button>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 11, letterSpacing: 2, fontWeight: 700, opacity: 0.75 }}>NUEVO · ENTRENAMIENTO</div>
+            <div style={{ fontSize: 11, letterSpacing: 2, fontWeight: 700, opacity: 0.75 }}>{isEdit ? 'EDITAR' : 'NUEVO'} · ENTRENAMIENTO</div>
             <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.4, display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 22 }}>🏃</span> Entrenamiento
             </div>
@@ -377,7 +378,7 @@ function CreateTraining({ back, onSave, role, coachCategory }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         }}>
           <Icon name="check" size={18} color="#fff" strokeWidth={2.5} />
-          Crear entrenamiento
+          {isEdit ? 'Guardar cambios' : 'Crear entrenamiento'}
         </button>
       </div>
     </div>
@@ -385,27 +386,30 @@ function CreateTraining({ back, onSave, role, coachCategory }) {
 }
 
 // ── CREATE MATCH ────────────────────────────────────────────
-function CreateMatch({ back, onSave, role, coachCategory, kind = 'match' }) {
+function CreateMatch({ back, onSave, role, coachCategory, kind = 'match', editingEvent }) {
   const isOfficial = kind === 'match';
+  const isEdit = !!editingEvent;
   const [step, setStep] = React.useState(1);      // 1=details, 2=convocatoria, 3=snack, 4=revisar
-  const [category, setCategory] = React.useState(coachCategory || 'Sub-12');
-  const [rival, setRival] = React.useState('');
-  const [date, setDate] = React.useState('2026-09-26');
-  const [matchTime, setMatchTime] = React.useState('10:30');
-  const [callTime, setCallTime] = React.useState('09:30');
-  const [uniform, setUniform] = React.useState('local');
-  const [location, setLocation] = React.useState(KNOWN_PLACES[2]);
-  const [notes, setNotes] = React.useState('');
-  const [convocados, setConvocados] = React.useState(new Set());
-  const [snackPlayerId, setSnackPlayerId] = React.useState(null);
+  const [category, setCategory] = React.useState(editingEvent?.category || coachCategory || 'Sub-12');
+  const [rival, setRival] = React.useState(editingEvent?.rival || '');
+  const [date, setDate] = React.useState(editingEvent?.date || '2026-09-26');
+  const [matchTime, setMatchTime] = React.useState(editingEvent?.matchTime || '10:30');
+  const [callTime, setCallTime] = React.useState(editingEvent?.callTime || '09:30');
+  const [uniform, setUniform] = React.useState(editingEvent?.uniform || 'local');
+  const [location, setLocation] = React.useState(editingEvent?.location || KNOWN_PLACES[2]);
+  const [notes, setNotes] = React.useState(editingEvent?.notes || '');
+  const [convocados, setConvocados] = React.useState(new Set(editingEvent?.convocados || []));
+  const [snackPlayerId, setSnackPlayerId] = React.useState(editingEvent?.snackPlayerId || null);
 
   const roster = window.TZ_DATA.PLAYERS.filter(p => p.category === category);
 
-  // Init convocados when category ready
+  // Init convocados when category changes (only if NOT editing an existing event)
+  const [initedConvocados, setInitedConvocados] = React.useState(isEdit);
   React.useEffect(() => {
-    // start with all APTOs pre-checked
+    if (initedConvocados && isEdit) return; // preserve incoming convocados when editing
     const initial = new Set(roster.filter(p => p.medical.status === 'apto').map(p => p.id));
     setConvocados(initial);
+    setInitedConvocados(true);
   }, [category]);
 
   const canGoStep2 = rival && date && matchTime && callTime && location;
@@ -433,7 +437,7 @@ function CreateMatch({ back, onSave, role, coachCategory, kind = 'match' }) {
           </button>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 11, letterSpacing: 2, fontWeight: 700, opacity: 0.75 }}>
-              NUEVO · PARTIDO {isOfficial ? 'OFICIAL' : 'AMISTOSO'}
+              {isEdit ? 'EDITAR' : 'NUEVO'} · PARTIDO {isOfficial ? 'OFICIAL' : 'AMISTOSO'}
             </div>
             <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.4, display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 22 }}>{isOfficial ? '⚽' : '🤝'}</span>
@@ -747,7 +751,7 @@ function CreateMatch({ back, onSave, role, coachCategory, kind = 'match' }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}>
               <Icon name="check" size={16} color="#fff" strokeWidth={2.5} />
-              Crear y enviar
+              {isEdit ? 'Guardar cambios' : 'Crear y enviar'}
             </button>
           </div>
         </div>
@@ -842,31 +846,54 @@ const quickBtn = {
 };
 
 // ── Wrapper flow ─────────────────────────────────────────────
-function CreateEventFlow({ back, role, coachCategory, onCreated }) {
-  const [screen, setScreen] = React.useState('picker'); // picker | training | match | friendly | meeting | party | success
+function CreateEventFlow({ back, role, coachCategory, onCreated, editingEvent }) {
+  // If editing, jump directly to the right form
+  const initialScreen = editingEvent ? (
+    editingEvent.type === 'match' || editingEvent.type === 'friendly' ? editingEvent.type
+    : editingEvent.type === 'training' ? 'training'
+    : 'meeting'
+  ) : 'picker';
+  const [screen, setScreen] = React.useState(initialScreen);
   const [saved, setSaved] = React.useState(null);
+  const isEdit = !!editingEvent;
 
-  const handleSave = (data) => { setSaved(data); setScreen('success'); onCreated && onCreated(data); };
+  const handleSave = (data) => {
+    const by = { role, name: role === 'admin' ? 'Admin' : role === 'coach' ? 'Coach' : 'Padre' };
+    let result;
+    if (isEdit) {
+      // Actualizar evento existente — dispara notificaciones automáticas
+      result = window.updateEvent(editingEvent.id, data, by);
+    } else {
+      // Crear nuevo evento y persistirlo
+      result = window.createEvent(data, by);
+    }
+    setSaved(result || data);
+    setScreen('success');
+    onCreated && onCreated(result || data);
+  };
+
+  const backToPicker = () => isEdit ? back() : setScreen('picker');
 
   if (screen === 'picker') {
     return <CreateEventPicker back={back} role={role} coachCategory={coachCategory}
       onPick={(t) => setScreen(t)} />;
   }
-  if (screen === 'training') return <CreateTraining back={() => setScreen('picker')} onSave={handleSave} role={role} coachCategory={coachCategory} />;
-  if (screen === 'match')    return <CreateMatch back={() => setScreen('picker')} onSave={handleSave} role={role} coachCategory={coachCategory} kind="match" />;
-  if (screen === 'friendly') return <CreateMatch back={() => setScreen('picker')} onSave={handleSave} role={role} coachCategory={coachCategory} kind="friendly" />;
+  if (screen === 'training') return <CreateTraining back={backToPicker} onSave={handleSave} role={role} coachCategory={coachCategory} editingEvent={editingEvent} />;
+  if (screen === 'match')    return <CreateMatch back={backToPicker} onSave={handleSave} role={role} coachCategory={coachCategory} kind="match" editingEvent={editingEvent} />;
+  if (screen === 'friendly') return <CreateMatch back={backToPicker} onSave={handleSave} role={role} coachCategory={coachCategory} kind="friendly" editingEvent={editingEvent} />;
   if (screen === 'meeting') {
-    return <SimpleEventStub back={() => setScreen('picker')} onSave={handleSave} icon="📋" label="Evento del club"
-      hint="Reuniones, juntas con padres, presentaciones oficiales." />;
+    return <SimpleEventStub back={backToPicker} onSave={handleSave} icon="📋" label="Evento del club"
+      hint="Reuniones, juntas con padres, presentaciones oficiales." editingEvent={editingEvent} />;
   }
-  if (screen === 'success') return <SuccessScreen data={saved} back={back} />;
+  if (screen === 'success') return <SuccessScreen data={saved} back={back} isEdit={isEdit} />;
   return null;
 }
 
-function SimpleEventStub({ back, onSave, icon, label, hint }) {
-  const [title, setTitle] = React.useState('');
-  const [dateTime, setDateTime] = React.useState('2026-09-30T19:00');
-  const [location, setLocation] = React.useState(KNOWN_PLACES[0]);
+function SimpleEventStub({ back, onSave, icon, label, hint, editingEvent }) {
+  const isEdit = !!editingEvent;
+  const [title, setTitle] = React.useState(editingEvent?.title || '');
+  const [dateTime, setDateTime] = React.useState(editingEvent?.dateTime || '2026-09-30T19:00');
+  const [location, setLocation] = React.useState(editingEvent?.location || KNOWN_PLACES[0]);
   const canSave = title && dateTime;
   return (
     <div style={{ paddingBottom: 100, minHeight: '100%', background: '#F4F5F8' }}>
@@ -914,14 +941,14 @@ function SimpleEventStub({ back, onSave, icon, label, hint }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         }}>
           <Icon name="check" size={18} color="#fff" strokeWidth={2.5} />
-          Crear evento
+          {isEdit ? 'Guardar cambios' : 'Crear evento'}
         </button>
       </div>
     </div>
   );
 }
 
-function SuccessScreen({ data, back }) {
+function SuccessScreen({ data, back, isEdit }) {
   const isMatch = data.type === 'match' || data.type === 'friendly';
   return (
     <div style={{ minHeight: '100%', background: '#F4F5F8', paddingBottom: 100,
@@ -939,10 +966,14 @@ function SuccessScreen({ data, back }) {
             <Icon name="check" size={36} color={TZ.ok} strokeWidth={3} />
           </div>
           <div style={{ fontSize: 22, fontWeight: 800, marginTop: 14, letterSpacing: -0.4 }}>
-            ¡{isMatch ? 'Partido' : data.type === 'training' ? 'Entrenamiento' : 'Evento'} creado!
+            {isEdit
+              ? `¡${isMatch ? 'Partido' : data.type === 'training' ? 'Entrenamiento' : 'Evento'} actualizado!`
+              : `¡${isMatch ? 'Partido' : data.type === 'training' ? 'Entrenamiento' : 'Evento'} creado!`}
           </div>
           <div style={{ fontSize: 13, opacity: 0.9, marginTop: 6 }}>
-            Los avisos ya se enviaron a las familias.
+            {isEdit
+              ? '📢 Los cambios fueron notificados a las familias por push y chat.'
+              : 'Los avisos ya se enviaron a las familias.'}
           </div>
         </div>
       </div>

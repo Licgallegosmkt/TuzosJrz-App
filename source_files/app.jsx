@@ -11,13 +11,14 @@ function App() {
     ParentOnboarding, ParentHome, ParentChildProfile, ParentTabBar,
     CoachHome, CoachRoster, CoachPlayerProfile, CoachCall, CoachTabBar,
     ChatList, ChatConversation, NewChatComposer, AdminChatSupervision,
-    AdminCoaches, CalendarScreen, NotificationsCenter, PushMock, AdminReports,
+    AdminCoaches, CalendarScreen, NotificationsCenter, PushMock, PushToast, AdminReports,
     AdminProfile, CoachProfile, ParentProfile,
     CreateEventFlow,
     PayFlow, ParentPayments, AdminPaymentInbox,
     TournamentExport,
     SplashScreen, LoginScreen, NoAccountScreen,
     getSession, clearSession,
+    EventDetail, MatchLive,
   } = window;
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
 
@@ -146,9 +147,20 @@ function App() {
         ) : route && route.screen === 'coaches' ? (
           <AdminCoaches back={back} />
         ) : route && route.screen === 'calendar' ? (
-          <CalendarScreen role="admin" back={back} onCreate={() => setRoute({ screen: 'createEvent' })} />
+          <CalendarScreen role="admin" back={back}
+            onCreate={() => setRoute({ screen: 'createEvent' })}
+            onOpenEvent={(id) => setRoute({ screen: 'eventDetail', eventId: id })} />
         ) : route && route.screen === 'createEvent' ? (
-          <CreateEventFlow back={() => setRoute({ screen: 'calendar' })} role="admin" />
+          <CreateEventFlow back={() => setRoute({ screen: 'calendar' })} role="admin"
+            editingEvent={route.editingEvent} />
+        ) : route && route.screen === 'eventDetail' ? (
+          <EventDetail eventId={route.eventId} role="admin"
+            back={() => setRoute({ screen: 'calendar' })}
+            onEdit={(evt) => setRoute({ screen: 'createEvent', editingEvent: evt })}
+            onStartMatch={(evt) => setRoute({ screen: 'matchLive', eventId: evt.id })} />
+        ) : route && route.screen === 'matchLive' ? (
+          <MatchLive eventId={route.eventId}
+            back={() => setRoute({ screen: 'eventDetail', eventId: route.eventId })} />
         ) : route && route.screen === 'chat' ? (
           <ChatList role="admin" openChat={openChatFromAdmin} openNewChat={() => setRoute({ screen: 'newChat' })} openSupervision={() => setRoute({ screen: 'supervision' })} />
         ) : route && route.screen === 'chatConv' ? (
@@ -249,10 +261,20 @@ function App() {
         ) : coachRoute && coachRoute.screen === 'notifications' ? (
           <NotificationsCenter role="coach" back={() => setCoachRoute(null)} />
         ) : coachRoute && coachRoute.screen === 'createEvent' ? (
-          <CreateEventFlow back={() => setCoachRoute(null)} role="coach" coachCategory={coachCategory} />
+          <CreateEventFlow back={() => setCoachRoute(null)} role="coach" coachCategory={coachCategory}
+            editingEvent={coachRoute.editingEvent} />
         ) : coachRoute && coachRoute.screen === 'calendar' ? (
           <CalendarScreen role="coach" category={coachCategory} back={() => setCoachRoute(null)}
-            onCreate={() => setCoachRoute({ screen: 'createEvent' })} />
+            onCreate={() => setCoachRoute({ screen: 'createEvent' })}
+            onOpenEvent={(id) => setCoachRoute({ screen: 'eventDetail', eventId: id })} />
+        ) : coachRoute && coachRoute.screen === 'eventDetail' ? (
+          <EventDetail eventId={coachRoute.eventId} role="coach" coachCategory={coachCategory}
+            back={() => setCoachRoute({ screen: 'calendar' })}
+            onEdit={(evt) => setCoachRoute({ screen: 'createEvent', editingEvent: evt })}
+            onStartMatch={(evt) => setCoachRoute({ screen: 'matchLive', eventId: evt.id })} />
+        ) : coachRoute && coachRoute.screen === 'matchLive' ? (
+          <MatchLive eventId={coachRoute.eventId}
+            back={() => setCoachRoute({ screen: 'eventDetail', eventId: coachRoute.eventId })} />
         ) : (
           <>
             {coachTab === 'home' && <CoachHome nav={coachNav} openPlayer={openCoachPlayer} category={coachCategory} />}
@@ -307,6 +329,7 @@ function App() {
     }}>
       <IOSDevice width={deviceW} height={deviceH}>
         {deviceContent}
+        {authStage === 'app' && PushToast && <PushToast />}
       </IOSDevice>
 
       <TweaksPanel>
